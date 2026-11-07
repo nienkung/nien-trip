@@ -40,34 +40,56 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '無效的解析類型 (type)' });
     }
 
-    // 使用官方別名 gemini-flash-latest
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: systemPrompt },
-              { text: `以下是使用者輸入的內容：\n${rawText}` }
+    // 優先使用標準版，遇 503 高負載自動切換至 Lite 輕量備援版
+    const models = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
+    let lastError = null;
+    let data = null;
+
+    for (const model of models) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: systemPrompt },
+                  { text: `以下是使用者輸入的內容：\n${rawText}` }
+                ]
+              }
             ]
+          })
+        });
+
+        const resData = await response.json();
+
+        if (resData.error) {
+          lastError = resData.error;
+          // 若遇 503 高負載，自動改試 Lite 版本
+          if (resData.error.code === 503 || resData.error.status === 'UNAVAILABLE') {
+            console.warn(`Model ${model} 忙碌 (503)，自動切換至下一個模型...`);
+            continue;
+          } else {
+            return res.status(400).json({ error: `Gemini API 回應錯誤 (${resData.error.code}): ${resData.error.message}` });
           }
-        ]
-      })
-    });
+        }
 
-    const resData = await response.json();
-
-    if (resData.error) {
-      return res.status(400).json({ error: `Gemini API 回應錯誤 (${resData.error.code}): ${resData.error.message}` });
+        if (resData.candidates && resData.candidates[0] && resData.candidates[0].content) {
+          data = resData;
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    if (!resData.candidates || !resData.candidates[0] || !resData.candidates[0].content) {
-      return res.status(500).json({ error: 'Gemini 未能產生有效的分析結果' });
+    if (!data) {
+      return res.status(503).json({ error: `Google API 目前高負載繁忙中，請稍後重試 (${lastError?.message || '503 High Demand'})` });
     }
 
-    let replyText = resData.candidates[0].content.parts[0].text.trim();
+    let replyText = data.candidates[0].content.parts[0].text.trim();
     replyText = replyText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     const parsedData = JSON.parse(replyText);
