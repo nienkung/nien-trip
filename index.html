@@ -201,24 +201,43 @@
     </div>
   </div>
 
-  <!-- AI Modal -->
+  <!-- Gemini AI 隨手記智慧匯入彈窗 (雙分頁) -->
   <div id="aiImportModal" class="modal-mask">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:550px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 style="font-size:17px; font-weight:800;">🤖 Gemini AI 隨手記匯入</h3>
+        <h3 style="font-size:17px; font-weight:800;">🤖 Gemini AI 智慧隨手記</h3>
         <button onclick="closeAiImportModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
       </div>
-      <textarea id="aiImportInput" class="form-control" rows="8" placeholder="輸入或貼上任何口語隨手筆記..."></textarea>
-      <button id="aiSubmitBtn" class="btn-submit" style="margin-top:12px;" onclick="processGeminiAIImport()">✨ Gemini AI 智慧理解寫入</button>
+
+      <!-- 雙分頁頁籤 -->
+      <div class="tab-bar" style="margin-bottom:14px; display:flex; gap:10px;">
+        <button id="tabBtnSpot" class="tab-btn active" style="flex:1;" onclick="switchAiTab('spot')">📍 語音/文字新增行程</button>
+        <button id="tabBtnExp" class="tab-btn" style="flex:1;" onclick="switchAiTab('exp')">📝 語音/文字新增記帳</button>
+      </div>
+
+      <!-- 行程分頁區塊 -->
+      <div id="aiSectionSpot">
+        <p style="font-size:12px; color:var(--sub-text); margin-bottom:6px;">用口語隨手寫或貼上文章，AI 將自動判斷天數、時間與景點：</p>
+        <textarea id="spotAiInput" class="form-control" rows="6" placeholder="例如：第一天晚上七點要去京都車站拉麵小路吃拉麵，吃完去清水寺看夜楓"></textarea>
+        <button id="spotAiBtn" class="btn-submit" style="margin-top:10px; width:100%;" onclick="processSpotAiImport()">📍 智慧理解並寫入行程</button>
+      </div>
+
+      <!-- 記帳分頁區塊 -->
+      <div id="aiSectionExp" style="display:none;">
+        <p style="font-size:12px; color:var(--sub-text); margin-bottom:6px;">用口語隨手寫或貼上明細，AI 將自動判斷天數、品名、金額與幣別：</p>
+        <textarea id="expAiInput" class="form-control" rows="6" placeholder="例如：第一天買了超商零食 1200 日圓，晚上拉麵 3000 日圓"></textarea>
+        <button id="expAiBtn" class="btn-submit" style="margin-top:10px; width:100%;" onclick="processExpAiImport()">📝 智慧理解並寫入記帳</button>
+      </div>
+
     </div>
   </div>
 
   <!-- 依序載入 6 個專屬模組 -->
-  <script type="module" src="./firebase-config.js"></script>
-  <script src="./app-state.js"></script>
-  <script src="./dashboard.js"></script>
-  <script src="./itinerary.js"></script>
-  <script src="./expenses.js"></script>
-  <script src="./ai-importer.js"></script>
+  <script src="./firebase-config.js?v=20261108"></script>
+  <script src="./app-state.js?v=20261108"></script>
+  <script src="./dashboard.js?v=20261108"></script>
+  <script src="./itinerary.js?v=20261108"></script>
+  <script src="./expenses.js?v=20261108"></script>
+  <script src="./ai-importer.js?v=20261108"></script>
 </body>
 </html>
