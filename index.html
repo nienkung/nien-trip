@@ -233,7 +233,8 @@
   </div>
 
   <!-- 依序載入 6 個專屬模組 -->
-  <script src="./firebase-config.js?v=20261108"></script>
+  <!-- 注意 firebase-config.js 必須加上 type="module" -->
+  <script type="module" src="./firebase-config.js?v=20261108"></script>
   <script src="./app-state.js?v=20261108"></script>
   <script src="./dashboard.js?v=20261108"></script>
   <script src="./itinerary.js?v=20261108"></script>
