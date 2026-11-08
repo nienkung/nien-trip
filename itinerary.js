@@ -1,3 +1,78 @@
+// ===== Google Maps 地點自動搜尋（Places API New）=====
+let _placesLibPromise = null;
+async function ensurePlacesLib() {
+  if (!(window.google && window.google.maps && window.google.maps.importLibrary)) return null;
+  try {
+    if (!_placesLibPromise) _placesLibPromise = window.google.maps.importLibrary('places');
+    return await _placesLibPromise;
+  } catch (e) {
+    console.warn('Google Places 載入失敗：', e);
+    return null;
+  }
+}
+
+async function mountSpotAutocomplete() {
+  const container = document.getElementById('spotPlaceContainer');
+  const hint = document.getElementById('spotPlaceHint');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const lib = await ensurePlacesLib();
+  if (!lib || !lib.PlaceAutocompleteElement) {
+    if (hint) hint.textContent = '（Google 地點搜尋目前無法使用，可直接手動填寫下方欄位）';
+    return;
+  }
+  if (hint) hint.textContent = '🔍 輸入關鍵字選地標，會自動帶入名稱與地圖連結';
+
+  let pac;
+  try {
+    pac = new lib.PlaceAutocompleteElement();
+  } catch (e) {
+    if (hint) hint.textContent = '（Google 地點搜尋初始化失敗，可直接手動填寫）';
+    console.warn('PlaceAutocompleteElement 建立失敗：', e);
+    return;
+  }
+  pac.style.width = '100%';
+  container.appendChild(pac);
+
+  pac.addEventListener('gmp-select', async (event) => {
+    try {
+      const pred = event.placePrediction;
+      if (!pred) return;
+      const place = pred.toPlace();
+      await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'googleMapsURI', 'photos'] });
+
+      const titleEl = document.getElementById('spotTitleInput');
+      const mapEl = document.getElementById('spotMapUrl');
+      const thumbEl = document.getElementById('spotThumbUrl');
+
+      if (titleEl) titleEl.value = place.displayName || place.formattedAddress || titleEl.value || '';
+      if (mapEl && place.googleMapsURI) mapEl.value = place.googleMapsURI;
+      if (thumbEl && !thumbEl.value && place.photos && place.photos.length) {
+        try { thumbEl.value = place.photos[0].getURI({ maxWidthPx: 600 }); } catch (e2) {}
+      }
+      updateSpotThumbPreview();
+    } catch (e) {
+      console.warn('取得地點資料失敗：', e);
+    }
+  });
+}
+
+window.updateSpotThumbPreview = function() {
+  const thumbEl = document.getElementById('spotThumbUrl');
+  const prev = document.getElementById('spotThumbPreview');
+  if (!thumbEl || !prev) return;
+  const url = thumbEl.value.trim();
+  if (url) {
+    prev.src = url;
+    prev.style.display = 'block';
+  } else {
+    prev.style.display = 'none';
+  }
+};
+
+// ===== 行程渲染 =====
+
 window.renderItineraryFromJSON = function(data) {
   const container = document.getElementById('itineraryContainer');
   if (!container) return;
@@ -25,27 +100,33 @@ window.renderItineraryFromJSON = function(data) {
             <button class="btn-spot-edit" style="padding:6px 12px; font-size:12px; background:var(--brand-main); color:#fff;" onclick="openSpotModal('${dayKey}', -1)">➕ 新增景點</button>
           </div>` : ''}
 
-          ${spots.length > 0 ? spots.map((spot, spotIdx) => `
+          ${spots.length > 0 ? spots.map((spot, spotIdx) => {
+            const mapHref = spot.mapUrl ? spot.mapUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title || '')}`;
+            return `
             <div class="spot-card">
               ${canEdit ? `
               <div class="spot-actions">
                 <button class="btn-spot-edit" onclick="openSpotModal('${dayKey}', ${spotIdx})">✏️ 修改</button>
                 <button class="btn-spot-del" onclick="deleteSpot('${dayKey}', ${spotIdx})">🗑️ 刪除</button>
               </div>` : ''}
+              ${spot.thumbUrl ? `<img class="spot-thumb" src="${window.escapeHtml(spot.thumbUrl)}" alt="" onerror="this.style.display='none'">` : ''}
               ${spot.time ? `<span class="spot-time">⏰ ${window.escapeHtml(spot.time)}</span>` : ''}
               <div class="spot-title">${window.escapeHtml(spot.title)}</div>
               ${spot.desc ? `<div class="spot-desc">${window.escapeHtml(spot.desc)}</div>` : ''}
               <div class="btn-group">
-                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title)}" target="_blank" class="map-btn">📍 地圖導航</a>
+                <a href="${window.escapeHtml(mapHref)}" target="_blank" class="map-btn">📍 地圖導航</a>
               </div>
             </div>
-          `).join('') : '<div style="font-size:13px; color:var(--sub-text); text-align:center; padding:12px;">尚無景點，' + (canEdit ? '點擊上方按鈕新增！' : '團員新增後會顯示於此。') + '</div>'}
+          `;
+          }).join('') : '<div style="font-size:13px; color:var(--sub-text); text-align:center; padding:12px;">尚無景點，' + (canEdit ? '點擊上方按鈕新增！' : '團員新增後會顯示於此。') + '</div>'}
         </div>
       </div>
     `;
   });
   container.innerHTML = html;
 };
+
+// ===== 景點新增 / 編輯彈窗 =====
 
 window.openSpotModal = function(dayKey, index = -1) {
   if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可編輯行程）。');
@@ -56,6 +137,8 @@ window.openSpotModal = function(dayKey, index = -1) {
   const modalTitle = document.getElementById('spotModalTitle');
   const timeInput = document.getElementById('spotTimeInput');
   const titleInput = document.getElementById('spotTitleInput');
+  const mapInput = document.getElementById('spotMapUrl');
+  const thumbInput = document.getElementById('spotThumbUrl');
   const descInput = document.getElementById('spotDescInput');
 
   if (index >= 0) {
@@ -63,21 +146,32 @@ window.openSpotModal = function(dayKey, index = -1) {
     const currentSpot = window.activeProjectData.itinerary[dayKey].spots[index];
     timeInput.value = currentSpot.time || '';
     titleInput.value = currentSpot.title || '';
+    mapInput.value = currentSpot.mapUrl || '';
+    thumbInput.value = currentSpot.thumbUrl || '';
     descInput.value = currentSpot.desc || '';
   } else {
     modalTitle.innerText = "📍 新增行程景點";
     timeInput.value = '';
     titleInput.value = '';
+    mapInput.value = '';
+    thumbInput.value = '';
     descInput.value = '';
   }
 
+  window.updateSpotThumbPreview();
+
   const modal = document.getElementById('spotModal');
   if (modal) modal.style.display = 'flex';
+
+  // 掛載 Google 地點自動搜尋（非同步，失敗不影響手動填寫）
+  mountSpotAutocomplete();
 };
 
 window.closeSpotModal = function() {
   const modal = document.getElementById('spotModal');
   if (modal) modal.style.display = 'none';
+  const container = document.getElementById('spotPlaceContainer');
+  if (container) container.innerHTML = '';
 };
 
 window.saveSpotFromModal = function() {
@@ -87,9 +181,11 @@ window.saveSpotFromModal = function() {
 
   const time = document.getElementById('spotTimeInput').value.trim();
   const title = document.getElementById('spotTitleInput').value.trim();
+  const mapUrl = document.getElementById('spotMapUrl').value.trim();
+  const thumbUrl = document.getElementById('spotThumbUrl').value.trim();
   const desc = document.getElementById('spotDescInput').value.trim();
 
-  if (!title) return alert('請輸入景點/活動名稱！');
+  if (!title) return alert('請輸入地點 / 景點名稱！');
 
   if (!window.activeProjectData.itinerary) window.activeProjectData.itinerary = {};
   if (!window.activeProjectData.itinerary[dayKey]) {
@@ -99,7 +195,7 @@ window.saveSpotFromModal = function() {
     window.activeProjectData.itinerary[dayKey].spots = [];
   }
 
-  const spotData = { time, title, desc };
+  const spotData = { time, title, mapUrl, thumbUrl, desc };
 
   if (index >= 0) {
     window.activeProjectData.itinerary[dayKey].spots[index] = spotData;
