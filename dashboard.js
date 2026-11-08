@@ -167,7 +167,41 @@ window.toggleDashSection = function(key) {
 
 // ===== 建立新專案 =====
 
+// 縮圖樣式選擇器（建立 / 編輯共用）
+const COVER_PICKER_MAP = {
+  edit: { box: 'editCoverPicker', hidden: 'editCoverIndex' },
+  new:  { box: 'newCoverPicker',  hidden: 'newCoverIndex' }
+};
+
+function renderCoverPicker(scope, selectedIndex) {
+  const map = COVER_PICKER_MAP[scope];
+  if (!map) return;
+  const box = document.getElementById(map.box);
+  if (!box) return;
+  const autoSelected = (selectedIndex === undefined || selectedIndex === null || selectedIndex < 0);
+  let html = `<div class="cover-swatch ${autoSelected ? 'selected' : ''}" onclick="selectCover('${scope}', -1)" style="background:linear-gradient(135deg,#CBD5E0,#718096);" title="自動">🎲</div>`;
+  window.TRIP_COVERS.forEach((c, i) => {
+    html += `<div class="cover-swatch ${selectedIndex === i ? 'selected' : ''}" onclick="selectCover('${scope}', ${i})" style="background:${c.grad};">${c.emoji}</div>`;
+  });
+  box.innerHTML = html;
+}
+
+window.selectCover = function(scope, idx) {
+  const map = COVER_PICKER_MAP[scope];
+  if (!map) return;
+  const hidden = document.getElementById(map.hidden);
+  if (hidden) hidden.value = idx;
+  renderCoverPicker(scope, idx);
+};
+
 window.openNewProjectModal = function() {
+  // 重置縮圖欄位（避免沿用上一次的設定）
+  const coverImg = document.getElementById('newProjCoverImage');
+  if (coverImg) coverImg.value = '';
+  const coverIdx = document.getElementById('newCoverIndex');
+  if (coverIdx) coverIdx.value = -1;
+  renderCoverPicker('new', -1);
+
   const modal = document.getElementById('createProjectModal');
   if (modal) modal.style.display = 'flex';
 };
@@ -240,6 +274,9 @@ window.submitCreateProject = async function() {
 
   const { itinerary } = buildItineraryForDates(startDateStr, endDateStr, null);
 
+  const coverIndex = parseInt(document.getElementById('newCoverIndex').value, 10);
+  const coverImage = (document.getElementById('newProjCoverImage').value || '').trim();
+
   const newProjData = {
     title: title,
     startDate: startDateStr,
@@ -251,6 +288,8 @@ window.submitCreateProject = async function() {
     expenses: {},
     createdAt: Date.now()
   };
+  if (!isNaN(coverIndex) && coverIndex >= 0) newProjData.coverIndex = coverIndex;
+  if (coverImage) newProjData.coverImage = coverImage;
 
   if (window.dbPush && window.dbRef && window.db) {
     try {
@@ -269,24 +308,6 @@ window.submitCreateProject = async function() {
 
 // ===== 卡片操作：編輯（名稱/日期/縮圖/團主）/ 複製 / 刪除（皆需管理權限）=====
 
-// 縮圖樣式選擇器
-function renderCoverPicker(selectedIndex) {
-  const box = document.getElementById('editCoverPicker');
-  if (!box) return;
-  const autoSelected = (selectedIndex === undefined || selectedIndex === null || selectedIndex < 0);
-  let html = `<div class="cover-swatch ${autoSelected ? 'selected' : ''}" onclick="selectCover(-1)" style="background:linear-gradient(135deg,#CBD5E0,#718096);" title="自動">🎲</div>`;
-  window.TRIP_COVERS.forEach((c, i) => {
-    html += `<div class="cover-swatch ${selectedIndex === i ? 'selected' : ''}" onclick="selectCover(${i})" style="background:${c.grad};">${c.emoji}</div>`;
-  });
-  box.innerHTML = html;
-}
-
-window.selectCover = function(idx) {
-  const hidden = document.getElementById('editCoverIndex');
-  if (hidden) hidden.value = idx;
-  renderCoverPicker(idx);
-};
-
 window.openEditProjectModal = function(id) {
   const p = window.allProjects[id];
   if (!p) return;
@@ -300,7 +321,7 @@ window.openEditProjectModal = function(id) {
 
   const coverIndex = (typeof p.coverIndex === 'number') ? p.coverIndex : -1;
   document.getElementById('editCoverIndex').value = coverIndex;
-  renderCoverPicker(coverIndex);
+  renderCoverPicker('edit', coverIndex);
 
   // 網站管理員才顯示「重新指定團主」
   const ownerSection = document.getElementById('editOwnerSection');
