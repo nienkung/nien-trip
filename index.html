@@ -300,6 +300,15 @@
         <label class="form-label">成員名單 (用逗號隔開)</label>
         <input type="text" id="newProjMembers" class="form-control" placeholder="錢粘, 蝦, 爸爸, 媽媽" value="錢粘, 蝦">
       </div>
+      <input type="hidden" id="newCoverIndex" value="-1">
+      <div class="form-group">
+        <label class="form-label">縮圖樣式</label>
+        <div id="newCoverPicker" class="cover-picker"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">自訂縮圖圖片網址（選填，填了會蓋過上面的樣式）</label>
+        <input type="text" id="newProjCoverImage" class="form-control" placeholder="https://...jpg">
+      </div>
       <button class="btn-submit" onclick="submitCreateProject()">確認建立專案</button>
     </div>
   </div>
@@ -432,11 +441,11 @@
     </div>
   </div>
 
-  <script type="module" src="./firebase-config.js?v=20261108c"></script>
-  <script src="./app-state.js?v=20261108c"></script>
-  <script src="./dashboard.js?v=20261108c"></script>
-  <script src="./itinerary.js?v=20261108c"></script>
-  <script src="./expenses.js?v=20261108c"></script>
-  <script src="./ai-importer.js?v=20261108c"></script>
+  <script type="module" src="./firebase-config.js?v=20261108d"></script>
+  <script src="./app-state.js?v=20261108d"></script>
+  <script src="./dashboard.js?v=20261108d"></script>
+  <script src="./itinerary.js?v=20261108d"></script>
+  <script src="./expenses.js?v=20261108d"></script>
+  <script src="./ai-importer.js?v=20261108d"></script>
 </body>
 </html>
