@@ -114,6 +114,13 @@
     .import-bar { display: flex; gap: 10px; margin-bottom: 14px; }
     .import-btn { flex: 1; padding: 12px 8px; border: none; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; background: var(--brand-main); color: #FFF; box-shadow: 0 2px 8px rgba(0,168,150,0.25); }
     .import-btn.md { background: #FFF; color: var(--brand-main); border: 1.5px solid var(--brand-border); box-shadow: none; }
+    .transfer-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--brand-border); }
+    .transfer-row:last-child { border-bottom: none; }
+    .transfer-row.done .transfer-line { color: var(--sub-text); text-decoration: line-through; }
+    .transfer-check { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--brand-main); cursor: pointer; flex-shrink: 0; }
+    .transfer-main { flex: 1; }
+    .transfer-line { font-size: 14px; }
+    .transfer-done-at { font-size: 11px; color: var(--brand-main); font-weight: 700; margin-top: 3px; }
     .card { background: var(--card-bg); border-radius: 18px; margin-bottom: 16px; border: 1.5px solid var(--brand-border); box-shadow: var(--shadow-md); overflow: hidden; }
     .card-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #FFFFFF; }
     .card-title { font-size: 17px; font-weight: 800; color: var(--brand-dark); }
@@ -517,12 +524,12 @@
     });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261108i"></script>
-  <script src="./app-state.js?v=20261108i"></script>
-  <script src="./dashboard.js?v=20261108i"></script>
-  <script src="./members.js?v=20261108i"></script>
-  <script src="./itinerary.js?v=20261108i"></script>
-  <script src="./expenses.js?v=20261108i"></script>
-  <script src="./ai-importer.js?v=20261108i"></script>
+  <script type="module" src="./firebase-config.js?v=20261108j"></script>
+  <script src="./app-state.js?v=20261108j"></script>
+  <script src="./dashboard.js?v=20261108j"></script>
+  <script src="./members.js?v=20261108j"></script>
+  <script src="./itinerary.js?v=20261108j"></script>
+  <script src="./expenses.js?v=20261108j"></script>
+  <script src="./ai-importer.js?v=20261108j"></script>
 </body>
 </html>
