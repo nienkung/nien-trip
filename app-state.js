@@ -3,11 +3,12 @@ window.allProjects = {};
 window.activeProjectId = null;
 window.activeProjectData = null;
 
-// 網站管理員（super 權限）：可對任何專案做所有操作，含重新指定團主
+// 網站管理員（super 權限）：可對任何專案做所有操作
 window.SUPER_ADMIN_EMAILS = [
   "moneynien@gmail.com"
 ];
 
+// 寫死匯率（備援；Step B 會改為後端即時匯率覆蓋 window.EXCHANGE_RATES）
 window.EXCHANGE_RATES = {
   TWD: 1.0,
   JPY: 0.21,
@@ -18,30 +19,88 @@ window.EXCHANGE_RATES = {
   THB: 0.92
 };
 
+// ===== 成員資料正規化（雙清單：members 有 email / externalPeople 只有名字）=====
+
+// 團員：可登入編輯的協作者，回傳 [{name, email}]；相容舊版字串陣列
+window.getMembers = function(proj) {
+  if (!proj || !Array.isArray(proj.members)) return [];
+  return proj.members.map(x =>
+    typeof x === 'string' ? { name: x, email: '' } : { name: (x && x.name) || '', email: (x && x.email) || '' }
+  ).filter(m => m.name);
+};
+
+// 外部分帳人：只參與分帳、不能登入，回傳 [name]
+window.getExternalPeople = function(proj) {
+  if (!proj || !Array.isArray(proj.externalPeople)) return [];
+  return proj.externalPeople.map(x => typeof x === 'string' ? x : (x && x.name) || '').filter(Boolean);
+};
+
+// 所有需要分帳的對象名字（團員 + 外部人，去重）
+window.getAllSplitNames = function(proj) {
+  const names = window.getMembers(proj).map(m => m.name);
+  const ext = window.getExternalPeople(proj);
+  const seen = {};
+  return names.concat(ext).filter(n => {
+    if (!n || seen[n]) return false;
+    seen[n] = true;
+    return true;
+  });
+};
+
 // ===== 權限判定 =====
 
-// 網站管理員（super）：email 在白名單中
 window.isSuperAdmin = function() {
   return !!(window.currentUser && window.SUPER_ADMIN_EMAILS.includes(window.currentUser.email));
 };
 
-// 嚴格判定「這是不是我建立的專案」（不含管理員 override），用於大廳的「我的 / 他人」分區
+// 嚴格判定「這是不是我建立的專案」（大廳分區用）
 window.isMyProject = function(projData) {
   if (!window.currentUser || !projData) return false;
+  const email = (window.currentUser.email || '').toLowerCase();
+  if (projData.ownerEmail && projData.ownerEmail.toLowerCase() === email) return true;
   return projData.ownerUid === window.currentUser.uid || projData.ownerName === window.currentUser.name;
 };
 
-// 是否可管理（修改 / 刪除 / 改名 / 複製 / 重新指定團主）：團主本人或網站管理員
-window.canManageProject = function(projData) {
-  return window.isSuperAdmin() || window.isMyProject(projData);
-};
-
-// 舊函式保留相容（部分頁面可能仍引用）
+// 團主（含管理員 override）
 window.isProjectOwner = function(projData) {
   if (!window.currentUser) return false;
   if (window.isSuperAdmin()) return true;
   if (!projData) return false;
+  const email = (window.currentUser.email || '').toLowerCase();
+  if (projData.ownerEmail && projData.ownerEmail.toLowerCase() === email) return true;
   return projData.ownerUid === window.currentUser.uid || projData.ownerName === window.currentUser.name;
+};
+
+// 團員：email 在團員名單中（或團主 / 管理員）
+window.isTeamMember = function(projData) {
+  if (!window.currentUser || !projData) return false;
+  if (window.isProjectOwner(projData)) return true;
+  const email = (window.currentUser.email || '').toLowerCase();
+  if (!email) return false;
+  return window.getMembers(projData).some(m => m.email && m.email.toLowerCase() === email);
+};
+
+// 可編輯內容（行程景點、記帳分帳、AI 隨手記）：團員 / 團主 / 管理員
+window.canEditContent = function(projData) {
+  return window.isSuperAdmin() || window.isProjectOwner(projData) || window.isTeamMember(projData);
+};
+
+// 可管理團員（邀請 / 編輯 / 刪除 / 加外部分帳人）：團主 / 管理員
+window.canManageMembers = function(projData) {
+  return window.isSuperAdmin() || window.isProjectOwner(projData);
+};
+
+// 可管理專案（改設定 / 刪除 / 換團主）：團主 / 管理員
+window.canManageProject = function(projData) {
+  return window.isSuperAdmin() || window.isProjectOwner(projData);
+};
+
+// 取得目前使用者在該專案的身份標籤
+window.getMyRole = function(projData) {
+  if (window.isSuperAdmin()) return 'admin';
+  if (window.isProjectOwner(projData)) return 'owner';
+  if (window.isTeamMember(projData)) return 'member';
+  return 'visitor';
 };
 
 // ===== 共用工具 =====
@@ -58,7 +117,7 @@ window.convertToTWD = function(amount, currency) {
   return amount * rate;
 };
 
-// 計算專案天數：優先用起迄日期，退而求其次用 itinerary（排除 D0 行前準備）
+// 計算專案天數：優先用起迄日期，退而求其次用 itinerary（排除 D0）
 window.getProjectDayCount = function(p) {
   if (!p) return 0;
   if (p.startDate && p.endDate) {
@@ -85,7 +144,6 @@ window.TRIP_COVERS = [
   { grad: 'linear-gradient(135deg, #68D391, #2F855A)', emoji: '🚅' }
 ];
 
-// 取得專案縮圖樣式：優先用手動指定的 coverIndex，否則依 id+標題決定性雜湊
 window.getProjectCover = function(p, id) {
   if (p && typeof p.coverIndex === 'number' && window.TRIP_COVERS[p.coverIndex]) {
     return window.TRIP_COVERS[p.coverIndex];
@@ -99,7 +157,6 @@ window.getProjectCover = function(p, id) {
   return window.TRIP_COVERS[idx];
 };
 
-// 防 XSS / 避免標題含特殊字元破版
 window.escapeHtml = function(str) {
   return String(str == null ? '' : str)
     .replace(/&/g, '&amp;')
