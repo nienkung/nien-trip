@@ -99,7 +99,7 @@ function dashProjectCardHTML(id, p) {
 
   const actions = canManage ? `
     <div class="card-actions" onclick="event.stopPropagation()">
-      <button class="card-act" title="重新命名" onclick="openRenameModal('${id}')">✏️</button>
+      <button class="card-act" title="編輯專案" onclick="openEditProjectModal('${id}')">✏️</button>
       <button class="card-act" title="複製專案" onclick="copyProject('${id}')">📄</button>
       <button class="card-act card-act-danger" title="刪除專案" onclick="deleteProject('${id}')">🗑️</button>
     </div>` : '';
@@ -177,6 +177,45 @@ window.closeNewProjectModal = function() {
   if (modal) modal.style.display = 'none';
 };
 
+// 依起迄日期產生行程天數骨架；oldItin 存在時保留既有景點（含 D0）
+function buildItineraryForDates(startStr, endStr, oldItin) {
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) + 1;
+  const weekMap = ['日', '一', '二', '三', '四', '五', '六'];
+  const old = oldItin || {};
+
+  const newItin = {};
+  newItin['D0'] = (old['D0'] && Array.isArray(old['D0'].spots))
+    ? { title: old['D0'].title || 'D0 (行前準備)', spots: old['D0'].spots }
+    : { title: 'D0 (行前準備)', spots: [] };
+
+  for (let i = 0; i < diffDays; i++) {
+    const cur = new Date(start);
+    cur.setDate(start.getDate() + i);
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    const w = weekMap[cur.getDay()];
+    const key = `D${i + 1}`;
+    const prevSpots = (old[key] && Array.isArray(old[key].spots)) ? old[key].spots : [];
+    newItin[key] = { title: `${key} (${m}/${d} 週${w})`, spots: prevSpots };
+  }
+  return { itinerary: newItin, diffDays };
+}
+
+// 找出縮短後會被孤立（超出新天數且仍有景點）的日期
+function findOrphanDays(oldItin, newDiffDays) {
+  const orphans = [];
+  Object.keys(oldItin || {}).forEach(k => {
+    if (k === 'D0') return;
+    const n = parseInt(k.replace('D', ''), 10);
+    if (!isNaN(n) && n > newDiffDays && oldItin[k] && Array.isArray(oldItin[k].spots) && oldItin[k].spots.length > 0) {
+      orphans.push(k);
+    }
+  });
+  return orphans;
+}
+
 window.submitCreateProject = async function() {
   const title = document.getElementById('newProjTitle').value.trim();
   const startDateStr = document.getElementById('newProjStartDate').value;
@@ -199,28 +238,7 @@ window.submitCreateProject = async function() {
     membersArr.unshift(window.currentUser.name);
   }
 
-  const diffTime = Math.abs(end - start);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-  const itinerary = {
-    "D0": { title: "D0 (行前準備)", spots: [] }
-  };
-  const weekMap = ['日', '一', '二', '三', '四', '五', '六'];
-
-  for (let i = 0; i < diffDays; i++) {
-    const current = new Date(start);
-    current.setDate(start.getDate() + i);
-
-    const m = String(current.getMonth() + 1).padStart(2, '0');
-    const d = String(current.getDate()).padStart(2, '0');
-    const w = weekMap[current.getDay()];
-
-    const dayKey = `D${i + 1}`;
-    itinerary[dayKey] = {
-      title: `${dayKey} (${m}/${d} 週${w})`,
-      spots: []
-    };
-  }
+  const { itinerary } = buildItineraryForDates(startDateStr, endDateStr, null);
 
   const newProjData = {
     title: title,
@@ -249,34 +267,111 @@ window.submitCreateProject = async function() {
   }
 };
 
-// ===== 卡片操作：改名 / 複製 / 刪除（皆需管理權限）=====
+// ===== 卡片操作：編輯（名稱/日期/縮圖/團主）/ 複製 / 刪除（皆需管理權限）=====
 
-window.openRenameModal = function(id) {
+// 縮圖樣式選擇器
+function renderCoverPicker(selectedIndex) {
+  const box = document.getElementById('editCoverPicker');
+  if (!box) return;
+  const autoSelected = (selectedIndex === undefined || selectedIndex === null || selectedIndex < 0);
+  let html = `<div class="cover-swatch ${autoSelected ? 'selected' : ''}" onclick="selectCover(-1)" style="background:linear-gradient(135deg,#CBD5E0,#718096);" title="自動">🎲</div>`;
+  window.TRIP_COVERS.forEach((c, i) => {
+    html += `<div class="cover-swatch ${selectedIndex === i ? 'selected' : ''}" onclick="selectCover(${i})" style="background:${c.grad};">${c.emoji}</div>`;
+  });
+  box.innerHTML = html;
+}
+
+window.selectCover = function(idx) {
+  const hidden = document.getElementById('editCoverIndex');
+  if (hidden) hidden.value = idx;
+  renderCoverPicker(idx);
+};
+
+window.openEditProjectModal = function(id) {
   const p = window.allProjects[id];
   if (!p) return;
   if (!window.canManageProject(p)) return alert('你沒有權限修改這個專案（僅團主或網站管理員可操作）。');
-  document.getElementById('renameProjId').value = id;
-  document.getElementById('renameProjTitle').value = p.title || '';
-  const modal = document.getElementById('renameProjectModal');
+
+  document.getElementById('editProjId').value = id;
+  document.getElementById('editProjTitle').value = p.title || '';
+  document.getElementById('editProjStartDate').value = p.startDate || '';
+  document.getElementById('editProjEndDate').value = p.endDate || '';
+  document.getElementById('editProjCoverImage').value = p.coverImage || '';
+
+  const coverIndex = (typeof p.coverIndex === 'number') ? p.coverIndex : -1;
+  document.getElementById('editCoverIndex').value = coverIndex;
+  renderCoverPicker(coverIndex);
+
+  // 網站管理員才顯示「重新指定團主」
+  const ownerSection = document.getElementById('editOwnerSection');
+  const ownerSelect = document.getElementById('editProjOwner');
+  if (window.isSuperAdmin() && ownerSection && ownerSelect) {
+    ownerSection.style.display = 'block';
+    const members = Array.isArray(p.members) ? p.members.slice() : [];
+    if (p.ownerName && !members.includes(p.ownerName)) members.unshift(p.ownerName);
+    ownerSelect.innerHTML = members.map(m => `<option value="${window.escapeHtml(m)}">${window.escapeHtml(m)}</option>`).join('');
+    ownerSelect.value = p.ownerName || (members[0] || '');
+  } else if (ownerSection) {
+    ownerSection.style.display = 'none';
+  }
+
+  const modal = document.getElementById('editProjectModal');
   if (modal) modal.style.display = 'flex';
 };
 
-window.closeRenameModal = function() {
-  const modal = document.getElementById('renameProjectModal');
+window.closeEditProjectModal = function() {
+  const modal = document.getElementById('editProjectModal');
   if (modal) modal.style.display = 'none';
 };
 
-window.submitRenameProject = function() {
-  const id = document.getElementById('renameProjId').value;
-  const title = document.getElementById('renameProjTitle').value.trim();
-  if (!title) return alert('請輸入專案名稱！');
-
+window.submitEditProject = function() {
+  const id = document.getElementById('editProjId').value;
   const p = window.allProjects[id];
   if (!p || !window.canManageProject(p)) return alert('你沒有權限修改這個專案。');
 
+  const title = document.getElementById('editProjTitle').value.trim();
+  const startDateStr = document.getElementById('editProjStartDate').value;
+  const endDateStr = document.getElementById('editProjEndDate').value;
+  const coverIndex = parseInt(document.getElementById('editCoverIndex').value, 10);
+  const coverImage = document.getElementById('editProjCoverImage').value.trim();
+
+  if (!title) return alert('請輸入專案名稱！');
+  if (!startDateStr || !endDateStr) return alert('請選擇出發與結束日期！');
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  if (start > end) return alert('結束日期不能早於出發日期！');
+
+  const updates = {
+    title,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    coverImage: coverImage || null,
+    coverIndex: (isNaN(coverIndex) || coverIndex < 0) ? null : coverIndex
+  };
+
+  // 日期有變 → 重建行程天數骨架，保留既有景點
+  const dateChanged = (startDateStr !== p.startDate) || (endDateStr !== p.endDate);
+  if (dateChanged) {
+    const { itinerary: newItin, diffDays } = buildItineraryForDates(startDateStr, endDateStr, p.itinerary);
+    const orphans = findOrphanDays(p.itinerary, diffDays);
+    if (orphans.length > 0) {
+      if (!confirm(`縮短天數後，${orphans.join('、')} 已排入的行程景點將會被刪除。\n確定要繼續嗎？`)) return;
+    }
+    updates.itinerary = newItin;
+  }
+
+  // 網站管理員：重新指定團主（以名稱接手，待新團主登入後由專案內部功能綁定 uid/email）
+  if (window.isSuperAdmin()) {
+    const ownerSelect = document.getElementById('editProjOwner');
+    if (ownerSelect && ownerSelect.value && ownerSelect.value !== (p.ownerName || '')) {
+      updates.ownerName = ownerSelect.value;
+      updates.ownerUid = '';
+    }
+  }
+
   if (window.dbUpdate && window.dbRef && window.db) {
-    window.dbUpdate(window.dbRef(window.db, `projects/${id}`), { title })
-      .then(() => window.closeRenameModal())
+    window.dbUpdate(window.dbRef(window.db, `projects/${id}`), updates)
+      .then(() => window.closeEditProjectModal())
       .catch(err => alert('更新失敗：' + err.message));
   }
 };
