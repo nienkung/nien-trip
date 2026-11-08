@@ -16,16 +16,14 @@ window.updateExpenseFormOptions = function() {
     `).join('');
   }
 
-  // 幣別：Step B 會改為讀專案設定，這裡先沿用固定清單
-  const currencies = [
-    { code: 'JPY', name: '💴 JPY - 日圓' },
-    { code: 'TWD', name: 'NT$ TWD - 新台幣' },
-    { code: 'USD', name: '💵 USD - 美金' },
-    { code: 'EUR', name: '💶 EUR - 歐元' }
-  ];
+  // 幣別：讀專案設定的幣別清單
+  const currencyCodes = window.getProjectCurrencies(proj);
   const expCurrencySelect = document.getElementById('expCurrency');
   if (expCurrencySelect) {
-    expCurrencySelect.innerHTML = currencies.map(c => `<option value="${c.code}">${c.name}</option>`).join('');
+    expCurrencySelect.innerHTML = currencyCodes.map(code => {
+      const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
+      return `<option value="${code}">${info.symbol || ''} ${code} - ${info.name || ''}</option>`;
+    }).join('');
   }
 
   const expPayerSelect = document.getElementById('expPayer');
@@ -155,9 +153,14 @@ window.openEditExpenseModal = function(expId) {
   document.getElementById('editExpItem').value = exp.item || '';
   document.getElementById('editExpAmount').value = exp.amount || '';
 
-  const currencies = ['JPY', 'TWD', 'USD', 'EUR'];
-  document.getElementById('editExpCurrency').innerHTML = currencies.map(c => `<option value="${c}">${c}</option>`).join('');
-  document.getElementById('editExpCurrency').value = exp.currency || 'JPY';
+  const currencyCodes = window.getProjectCurrencies(window.activeProjectData);
+  // 保險：若此筆舊幣別不在清單中，也補進選項避免遺失
+  const editCodes = currencyCodes.includes(exp.currency) || !exp.currency ? currencyCodes.slice() : [exp.currency, ...currencyCodes];
+  document.getElementById('editExpCurrency').innerHTML = editCodes.map(c => {
+    const info = window.CURRENCY_INFO[c] || { name: c, symbol: '' };
+    return `<option value="${c}">${info.symbol || ''} ${c} - ${info.name || ''}</option>`;
+  }).join('');
+  document.getElementById('editExpCurrency').value = exp.currency || editCodes[0] || 'JPY';
 
   document.getElementById('editExpPayer').innerHTML = splitNames.map(m => `<option value="${window.escapeHtml(m)}">${window.escapeHtml(m)}</option>`).join('');
   document.getElementById('editExpPayer').value = exp.payer || splitNames[0];
@@ -249,8 +252,12 @@ window.renderSettlement = function() {
     netMap[m] = paidMap[m] - shouldPayMap[m];
   });
 
-  let html = `
-    <div class="card open" style="margin-top:14px;">
+  const rateNote = window.ratesUpdatedAt
+    ? `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin:4px 0 10px;">💱 即時匯率（更新於 ${new Date(window.ratesUpdatedAt).toLocaleString('zh-TW')}）</div>`
+    : `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin:4px 0 10px;">💱 使用內建備援匯率</div>`;
+
+  let html = rateNote + `
+    <div class="card open" style="margin-top:4px;">
       <div class="card-header"><div class="card-title">📊 成員收支總覽 (TWD)</div></div>
       <div class="card-content">
         ${people.map(m => {
