@@ -1,11 +1,14 @@
-// 更新新增與修改記帳表單中的選項 (天數、幣別、付款人、分帳成員)
 window.updateExpenseFormOptions = function() {
   if (!window.activeProjectData) return;
   const proj = window.activeProjectData;
   const daysList = window.getDynamicProjectDays(proj);
-  const members = Array.isArray(proj.members) ? proj.members : ['錢粘'];
+  const splitNames = window.getAllSplitNames(proj);
+  const names = splitNames.length ? splitNames : ['錢粘'];
 
-  // 1. 天數選單
+  // 依權限顯示/隱藏「新增記帳」表單
+  const addCard = document.getElementById('addExpenseCard');
+  if (addCard) addCard.style.display = window.canEditContent(proj) ? 'block' : 'none';
+
   const expDaySelect = document.getElementById('expDay');
   if (expDaySelect) {
     expDaySelect.innerHTML = daysList.map(day => `
@@ -13,7 +16,7 @@ window.updateExpenseFormOptions = function() {
     `).join('');
   }
 
-  // 2. 幣別選單
+  // 幣別：Step B 會改為讀專案設定，這裡先沿用固定清單
   const currencies = [
     { code: 'JPY', name: '💴 JPY - 日圓' },
     { code: 'TWD', name: 'NT$ TWD - 新台幣' },
@@ -25,30 +28,28 @@ window.updateExpenseFormOptions = function() {
     expCurrencySelect.innerHTML = currencies.map(c => `<option value="${c.code}">${c.name}</option>`).join('');
   }
 
-  // 3. 付款人選單
   const expPayerSelect = document.getElementById('expPayer');
   if (expPayerSelect) {
-    expPayerSelect.innerHTML = members.map(m => `<option value="${m}">${m}</option>`).join('');
-    if (window.currentUser && members.includes(window.currentUser.name)) {
+    expPayerSelect.innerHTML = names.map(m => `<option value="${window.escapeHtml(m)}">${window.escapeHtml(m)}</option>`).join('');
+    if (window.currentUser && names.includes(window.currentUser.name)) {
       expPayerSelect.value = window.currentUser.name;
     }
   }
 
-  // 4. 參與分帳成員勾選框 (預設全選)
   const box = document.getElementById('expParticipantsBox');
   if (box) {
-    box.innerHTML = members.map(m => `
+    box.innerHTML = names.map(m => `
       <label class="checkbox-label">
-        <input type="checkbox" name="expParticipants" value="${m}" checked> ${m}
+        <input type="checkbox" name="expParticipants" value="${window.escapeHtml(m)}" checked> ${window.escapeHtml(m)}
       </label>
     `).join('');
   }
 };
 
-// 儲存新增記帳
 window.saveExpense = function(e) {
   e.preventDefault();
   if (!window.activeProjectId) return alert('請先選擇專案！');
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可記帳）。');
 
   const day = document.getElementById('expDay').value;
   const item = document.getElementById('expItem').value.trim();
@@ -77,13 +78,13 @@ window.saveExpense = function(e) {
   }
 };
 
-// 渲染記帳列表 (含編輯與刪除按鈕)
 window.renderExpenses = function() {
   const container = document.getElementById('expenseDayList');
   if (!container || !window.activeProjectData) return;
 
   const expenses = window.activeProjectData.expenses || {};
   const daysList = window.getDynamicProjectDays(window.activeProjectData);
+  const canEdit = window.canEditContent(window.activeProjectData);
 
   let html = '';
   let totalGroupTWD = 0;
@@ -114,13 +115,15 @@ window.renderExpenses = function() {
             return `
               <div class="expense-item">
                 <div class="expense-info">
-                  <div class="expense-title">${data.item}</div>
-                  <div class="expense-meta">💳 付款：${payer} ｜ 👥 分帳：${parts}</div>
+                  <div class="expense-title">${window.escapeHtml(data.item)}</div>
+                  <div class="expense-meta">💳 付款：${window.escapeHtml(payer)} ｜ 👥 分帳：${window.escapeHtml(parts)}</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                   <div class="expense-amount">${data.currency === 'JPY' ? '¥' : '$'}${data.amount} ${data.currency}</div>
-                  <button class="btn-spot-edit" onclick="openEditExpenseModal('${id}')">✏️</button>
-                  <button class="btn-delete" onclick="deleteExpense('${id}')">🗑️</button>
+                  ${canEdit ? `
+                    <button class="btn-spot-edit" onclick="openEditExpenseModal('${id}')">✏️</button>
+                    <button class="btn-delete" onclick="deleteExpense('${id}')">🗑️</button>
+                  ` : ''}
                 </div>
               </div>
             `;
@@ -135,15 +138,16 @@ window.renderExpenses = function() {
   if (totalElem) totalElem.innerText = `TWD $${Math.round(totalGroupTWD).toLocaleString()}`;
 };
 
-// 打開編輯記帳 Modal
 window.openEditExpenseModal = function(expId) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
   const exp = window.activeProjectData.expenses[expId];
   if (!exp) return;
 
   document.getElementById('editExpId').value = expId;
 
   const daysList = window.getDynamicProjectDays(window.activeProjectData);
-  const members = Array.isArray(window.activeProjectData.members) ? window.activeProjectData.members : ['錢粘'];
+  const names = window.getAllSplitNames(window.activeProjectData);
+  const splitNames = names.length ? names : ['錢粘'];
 
   document.getElementById('editExpDay').innerHTML = daysList.map(d => `<option value="${d}">${d}</option>`).join('');
   document.getElementById('editExpDay').value = exp.day || 'D1';
@@ -155,13 +159,13 @@ window.openEditExpenseModal = function(expId) {
   document.getElementById('editExpCurrency').innerHTML = currencies.map(c => `<option value="${c}">${c}</option>`).join('');
   document.getElementById('editExpCurrency').value = exp.currency || 'JPY';
 
-  document.getElementById('editExpPayer').innerHTML = members.map(m => `<option value="${m}">${m}</option>`).join('');
-  document.getElementById('editExpPayer').value = exp.payer || members[0];
+  document.getElementById('editExpPayer').innerHTML = splitNames.map(m => `<option value="${window.escapeHtml(m)}">${window.escapeHtml(m)}</option>`).join('');
+  document.getElementById('editExpPayer').value = exp.payer || splitNames[0];
 
-  const currentParts = Array.isArray(exp.participants) ? exp.participants : members;
-  document.getElementById('editExpParticipantsBox').innerHTML = members.map(m => `
+  const currentParts = Array.isArray(exp.participants) ? exp.participants : splitNames;
+  document.getElementById('editExpParticipantsBox').innerHTML = splitNames.map(m => `
     <label class="checkbox-label">
-      <input type="checkbox" name="editExpParticipants" value="${m}" ${currentParts.includes(m) ? 'checked' : ''}> ${m}
+      <input type="checkbox" name="editExpParticipants" value="${window.escapeHtml(m)}" ${currentParts.includes(m) ? 'checked' : ''}> ${window.escapeHtml(m)}
     </label>
   `).join('');
 
@@ -174,8 +178,8 @@ window.closeEditExpenseModal = function() {
   if (modal) modal.style.display = 'none';
 };
 
-// 提交編輯記帳
 window.submitUpdateExpense = function() {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
   const expId = document.getElementById('editExpId').value;
   const day = document.getElementById('editExpDay').value;
   const item = document.getElementById('editExpItem').value.trim();
@@ -203,8 +207,8 @@ window.submitUpdateExpense = function() {
   }
 };
 
-// 刪除記帳項目
 window.deleteExpense = function(expId) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
   if (!confirm('確定要刪除這筆記帳嗎？')) return;
   if (window.dbRemove && window.dbRef && window.db) {
     const targetRef = window.dbRef(window.db, `projects/${window.activeProjectId}/expenses/${expId}`);
@@ -215,22 +219,22 @@ window.deleteExpense = function(expId) {
   }
 };
 
-// ⚖️ 智慧拆帳計算與渲染
 window.renderSettlement = function() {
   const container = document.getElementById('settlementDetails');
   if (!container || !window.activeProjectData) return;
 
   const expenses = window.activeProjectData.expenses || {};
-  const members = Array.isArray(window.activeProjectData.members) ? window.activeProjectData.members : ['錢粘'];
+  const members = window.getAllSplitNames(window.activeProjectData);
+  const people = members.length ? members : ['錢粘'];
 
   const paidMap = {};
   const shouldPayMap = {};
-  members.forEach(m => { paidMap[m] = 0; shouldPayMap[m] = 0; });
+  people.forEach(m => { paidMap[m] = 0; shouldPayMap[m] = 0; });
 
   Object.values(expenses).forEach(exp => {
     const twd = window.convertToTWD(exp.amount || 0, exp.currency || 'JPY');
-    const payer = exp.payer || members[0];
-    const parts = Array.isArray(exp.participants) && exp.participants.length > 0 ? exp.participants : members;
+    const payer = exp.payer || people[0];
+    const parts = Array.isArray(exp.participants) && exp.participants.length > 0 ? exp.participants : people;
 
     if (paidMap[payer] !== undefined) paidMap[payer] += twd;
 
@@ -241,7 +245,7 @@ window.renderSettlement = function() {
   });
 
   const netMap = {};
-  members.forEach(m => {
+  people.forEach(m => {
     netMap[m] = paidMap[m] - shouldPayMap[m];
   });
 
@@ -249,12 +253,12 @@ window.renderSettlement = function() {
     <div class="card open" style="margin-top:14px;">
       <div class="card-header"><div class="card-title">📊 成員收支總覽 (TWD)</div></div>
       <div class="card-content">
-        ${members.map(m => {
+        ${people.map(m => {
           const net = Math.round(netMap[m]);
           const isGain = net >= 0;
           return `
             <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--brand-border);">
-              <div><strong>${m}</strong>（已付 $${Math.round(paidMap[m]).toLocaleString()} / 應付 $${Math.round(shouldPayMap[m]).toLocaleString()}）</div>
+              <div><strong>${window.escapeHtml(m)}</strong>（已付 $${Math.round(paidMap[m]).toLocaleString()} / 應付 $${Math.round(shouldPayMap[m]).toLocaleString()}）</div>
               <div style="font-weight:800; color:${isGain ? 'var(--brand-main)' : 'var(--danger)'};">
                 ${isGain ? `應收 +$${net.toLocaleString()}` : `應付 -$${Math.abs(net).toLocaleString()}`}
               </div>
@@ -265,11 +269,10 @@ window.renderSettlement = function() {
     </div>
   `;
 
-  // 最佳化找零結算建議
   const debtors = [];
   const creditors = [];
 
-  members.forEach(m => {
+  people.forEach(m => {
     const net = Math.round(netMap[m]);
     if (net < -1) debtors.push({ name: m, amount: Math.abs(net) });
     else if (net > 1) creditors.push({ name: m, amount: net });
@@ -279,7 +282,7 @@ window.renderSettlement = function() {
   let i = 0, j = 0;
   while (i < debtors.length && j < creditors.length) {
     const pay = Math.min(debtors[i].amount, creditors[j].amount);
-    transfers.push(`💳 <strong>${debtors[i].name}</strong> 應轉給 <strong>${creditors[j].name}</strong> <strong>NT$ ${Math.round(pay).toLocaleString()}</strong>`);
+    transfers.push(`💳 <strong>${window.escapeHtml(debtors[i].name)}</strong> 應轉給 <strong>${window.escapeHtml(creditors[j].name)}</strong> <strong>NT$ ${Math.round(pay).toLocaleString()}</strong>`);
 
     debtors[i].amount -= pay;
     creditors[j].amount -= pay;
