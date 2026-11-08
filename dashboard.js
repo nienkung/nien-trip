@@ -62,6 +62,10 @@ window.initFirebaseProjectsSync = function() {
   const projRef = window.dbRef(window.db, 'projects');
   window.dbOnValue(projRef, (snapshot) => {
     window.allProjects = snapshot.val() || {};
+    // 進入專案後，保持 activeProjectData 指向資料庫最新副本（含他人即時變更）
+    if (window.activeProjectId && window.allProjects[window.activeProjectId]) {
+      window.activeProjectData = window.allProjects[window.activeProjectId];
+    }
     window.renderDashboardProjects();
   });
 };
@@ -79,7 +83,8 @@ function dashProjectCardHTML(id, p) {
     : `background:${cover.grad};`;
 
   const dayCount = window.getProjectDayCount(p);
-  const members = Array.isArray(p.members) ? p.members : (p.members ? [p.members] : []);
+  const memberObjs = window.getMembers(p);
+  const extList = window.getExternalPeople(p);
 
   const mine = window.isMyProject(p);
   const canManage = window.canManageProject(p);
@@ -93,9 +98,9 @@ function dashProjectCardHTML(id, p) {
     badge = `<span class="role-badge role-viewer">👀 訪客</span>`;
   }
 
-  const memberChips = members.length
-    ? members.map(m => `<span class="member-chip">${window.escapeHtml(m)}</span>`).join('')
-    : `<span class="member-chip member-chip-empty">無成員</span>`;
+  let memberChips = memberObjs.map(m => `<span class="member-chip">${window.escapeHtml(m.name)}</span>`).join('');
+  if (extList.length) memberChips += `<span class="member-chip member-chip-empty">+${extList.length} 外部分帳</span>`;
+  if (!memberChips) memberChips = `<span class="member-chip member-chip-empty">無成員</span>`;
 
   const actions = canManage ? `
     <div class="card-actions" onclick="event.stopPropagation()">
@@ -267,10 +272,13 @@ window.submitCreateProject = async function() {
     return alert('結束日期不能早於出發日期！');
   }
 
-  const membersArr = membersRaw ? membersRaw.split(',').map(m => m.trim()).filter(Boolean) : ['錢粘'];
-  if (window.currentUser && !membersArr.includes(window.currentUser.name)) {
-    membersArr.unshift(window.currentUser.name);
-  }
+  // 建立者 = 團主（團員，綁 email）；其餘逗號名字先放「外部分帳人」，日後團主可在專案內邀請升級
+  const ownerName = window.currentUser ? window.currentUser.name : '錢粘';
+  const ownerEmail = window.currentUser ? (window.currentUser.email || '') : '';
+  const rawNames = membersRaw ? membersRaw.split(',').map(m => m.trim()).filter(Boolean) : [];
+  const externalPeople = rawNames.filter(n => n !== ownerName);
+
+  const members = [{ name: ownerName, email: ownerEmail }];
 
   const { itinerary } = buildItineraryForDates(startDateStr, endDateStr, null);
 
@@ -282,8 +290,10 @@ window.submitCreateProject = async function() {
     startDate: startDateStr,
     endDate: endDateStr,
     ownerUid: window.currentUser ? window.currentUser.uid : 'anonymous',
-    ownerName: window.currentUser ? window.currentUser.name : '錢粘',
-    members: membersArr,
+    ownerName: ownerName,
+    ownerEmail: ownerEmail,
+    members: members,
+    externalPeople: externalPeople,
     itinerary: itinerary,
     expenses: {},
     createdAt: Date.now()
@@ -328,10 +338,10 @@ window.openEditProjectModal = function(id) {
   const ownerSelect = document.getElementById('editProjOwner');
   if (window.isSuperAdmin() && ownerSection && ownerSelect) {
     ownerSection.style.display = 'block';
-    const members = Array.isArray(p.members) ? p.members.slice() : [];
-    if (p.ownerName && !members.includes(p.ownerName)) members.unshift(p.ownerName);
-    ownerSelect.innerHTML = members.map(m => `<option value="${window.escapeHtml(m)}">${window.escapeHtml(m)}</option>`).join('');
-    ownerSelect.value = p.ownerName || (members[0] || '');
+    const names = window.getMembers(p).map(m => m.name);
+    if (p.ownerName && !names.includes(p.ownerName)) names.unshift(p.ownerName);
+    ownerSelect.innerHTML = names.map(n => `<option value="${window.escapeHtml(n)}">${window.escapeHtml(n)}</option>`).join('');
+    ownerSelect.value = p.ownerName || (names[0] || '');
   } else if (ownerSection) {
     ownerSection.style.display = 'none';
   }
@@ -381,12 +391,15 @@ window.submitEditProject = function() {
     updates.itinerary = newItin;
   }
 
-  // 網站管理員：重新指定團主（以名稱接手，待新團主登入後由專案內部功能綁定 uid/email）
+  // 網站管理員：重新指定團主（以該團員名字接手，並同步綁定其 email）
   if (window.isSuperAdmin()) {
     const ownerSelect = document.getElementById('editProjOwner');
     if (ownerSelect && ownerSelect.value && ownerSelect.value !== (p.ownerName || '')) {
-      updates.ownerName = ownerSelect.value;
+      const newOwnerName = ownerSelect.value;
+      const match = window.getMembers(p).find(m => m.name === newOwnerName);
+      updates.ownerName = newOwnerName;
       updates.ownerUid = '';
+      updates.ownerEmail = (match && match.email) ? match.email : '';
     }
   }
 
