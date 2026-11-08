@@ -8,36 +8,45 @@ window.SUPER_ADMIN_EMAILS = [
   "moneynien@gmail.com"
 ];
 
-// 匯率（1 單位外幣 = 幾台幣）。此為備援值，載入後會被 /api/rates 的即時匯率覆蓋
+// 匯率（1 單位外幣 = 幾台幣）。此為備援概估值，載入後會被 /api/rates 的即時匯率覆蓋
 window.EXCHANGE_RATES = {
-  TWD: 1.0,
-  JPY: 0.21,
-  USD: 32.0,
-  EUR: 34.5,
-  GBP: 41.0,
-  KRW: 0.023,
-  THB: 0.92,
-  CNY: 4.5,
-  HKD: 4.1,
-  SGD: 24.0,
-  AUD: 21.0
+  TWD: 1.0, JPY: 0.21, USD: 32.0, EUR: 34.5, GBP: 41.0, KRW: 0.023, THB: 0.92,
+  CNY: 4.5, HKD: 4.1, SGD: 24.0, AUD: 21.0, MYR: 7.0, VND: 0.0013, IDR: 0.002,
+  PHP: 0.56, INR: 0.38, CAD: 23.5, NZD: 19.5, CHF: 36.0, MOP: 4.0, AED: 8.7,
+  TRY: 0.95, SEK: 3.0, NOK: 3.0, DKK: 4.6, RUB: 0.34, BRL: 5.7, MXN: 1.7,
+  ZAR: 1.7, PLN: 8.0, CZK: 1.4, HUF: 0.088, EGP: 0.65, SAR: 8.5, QAR: 8.8,
+  LKR: 0.11, NPR: 0.24, KHR: 0.008, MMK: 0.015, LAK: 0.0015
 };
 
 // 支援的幣別（專案幣別設定可從這裡挑）
-window.SUPPORTED_CURRENCIES = ['TWD', 'JPY', 'USD', 'EUR', 'GBP', 'KRW', 'THB', 'CNY', 'HKD', 'SGD', 'AUD'];
+window.SUPPORTED_CURRENCIES = [
+  'TWD', 'JPY', 'USD', 'EUR', 'KRW', 'THB', 'CNY', 'HKD', 'SGD', 'MYR', 'VND',
+  'IDR', 'PHP', 'MOP', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'INR', 'AED', 'TRY',
+  'SEK', 'NOK', 'DKK', 'RUB', 'BRL', 'MXN', 'ZAR', 'PLN', 'CZK', 'HUF', 'EGP',
+  'SAR', 'QAR', 'LKR', 'NPR', 'KHR', 'MMK', 'LAK'
+];
 
 window.CURRENCY_INFO = {
-  TWD: { name: '新台幣', symbol: 'NT$' },
-  JPY: { name: '日圓',   symbol: '¥' },
-  USD: { name: '美金',   symbol: '$' },
-  EUR: { name: '歐元',   symbol: '€' },
-  GBP: { name: '英鎊',   symbol: '£' },
-  KRW: { name: '韓元',   symbol: '₩' },
-  THB: { name: '泰銖',   symbol: '฿' },
-  CNY: { name: '人民幣', symbol: '¥' },
-  HKD: { name: '港幣',   symbol: 'HK$' },
-  SGD: { name: '新加坡幣', symbol: 'S$' },
-  AUD: { name: '澳幣',   symbol: 'A$' }
+  TWD: { name: '新台幣', symbol: 'NT$' }, JPY: { name: '日圓', symbol: '¥' },
+  USD: { name: '美金', symbol: '$' },     EUR: { name: '歐元', symbol: '€' },
+  KRW: { name: '韓元', symbol: '₩' },     THB: { name: '泰銖', symbol: '฿' },
+  CNY: { name: '人民幣', symbol: '¥' },   HKD: { name: '港幣', symbol: 'HK$' },
+  SGD: { name: '新加坡幣', symbol: 'S$' }, MYR: { name: '馬來西亞令吉', symbol: 'RM' },
+  VND: { name: '越南盾', symbol: '₫' },   IDR: { name: '印尼盾', symbol: 'Rp' },
+  PHP: { name: '菲律賓披索', symbol: '₱' }, MOP: { name: '澳門幣', symbol: 'MOP$' },
+  GBP: { name: '英鎊', symbol: '£' },     AUD: { name: '澳幣', symbol: 'A$' },
+  NZD: { name: '紐西蘭幣', symbol: 'NZ$' }, CAD: { name: '加拿大幣', symbol: 'C$' },
+  CHF: { name: '瑞士法郎', symbol: 'CHF' }, INR: { name: '印度盧比', symbol: '₹' },
+  AED: { name: '阿聯迪拉姆', symbol: 'AED' }, TRY: { name: '土耳其里拉', symbol: '₺' },
+  SEK: { name: '瑞典克朗', symbol: 'kr' }, NOK: { name: '挪威克朗', symbol: 'kr' },
+  DKK: { name: '丹麥克朗', symbol: 'kr' }, RUB: { name: '俄羅斯盧布', symbol: '₽' },
+  BRL: { name: '巴西雷亞爾', symbol: 'R$' }, MXN: { name: '墨西哥披索', symbol: 'Mex$' },
+  ZAR: { name: '南非蘭特', symbol: 'R' }, PLN: { name: '波蘭茲羅提', symbol: 'zł' },
+  CZK: { name: '捷克克朗', symbol: 'Kč' }, HUF: { name: '匈牙利福林', symbol: 'Ft' },
+  EGP: { name: '埃及鎊', symbol: 'E£' },  SAR: { name: '沙烏地里亞爾', symbol: 'SAR' },
+  QAR: { name: '卡達里亞爾', symbol: 'QAR' }, LKR: { name: '斯里蘭卡盧比', symbol: 'Rs' },
+  NPR: { name: '尼泊爾盧比', symbol: 'Rs' }, KHR: { name: '柬埔寨瑞爾', symbol: '៛' },
+  MMK: { name: '緬甸元', symbol: 'K' },   LAK: { name: '寮國基普', symbol: '₭' }
 };
 
 // 專案可使用的幣別清單（記帳下拉會讀這個；舊專案未設定時給預設）
