@@ -453,12 +453,40 @@ window.enterProject = function(projectId) {
   const titleElem = document.getElementById('activeProjectTitle');
   if (titleElem) titleElem.innerText = window.activeProjectData.title;
 
+  window.renderProjectHeader();
+
   if (window.renderItineraryFromJSON) window.renderItineraryFromJSON(window.activeProjectData.itinerary);
   if (window.updateExpenseFormOptions) window.updateExpenseFormOptions();
   if (window.renderExpenses) window.renderExpenses();
   if (window.renderSettlement) window.renderSettlement();
 
   window.switchView('project');
+};
+
+// 專案頁頂顯示：目前登入帳號 + 在此專案的身份，並依權限顯示匯入列
+window.renderProjectHeader = function() {
+  const nameEl = document.getElementById('projUserName');
+  if (nameEl) nameEl.innerText = window.currentUser ? window.currentUser.name : '';
+
+  const roleEl = document.getElementById('projRoleBadge');
+  if (roleEl) {
+    const role = window.getMyRole(window.activeProjectData);
+    const map = {
+      admin:   ['role-admin',  '🛡️ 網站管理員'],
+      owner:   ['role-owner',  '👑 團主'],
+      member:  ['role-member', '👥 團員'],
+      visitor: ['role-viewer', '👀 訪客']
+    };
+    const [cls, label] = map[role] || map.visitor;
+    roleEl.className = 'role-badge ' + cls;
+    roleEl.innerText = label;
+  }
+
+  const canEdit = window.canEditContent(window.activeProjectData);
+  ['spotImportBar', 'expImportBar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = canEdit ? 'flex' : 'none';
+  });
 };
 
 window.navigateToDashboard = function() {
