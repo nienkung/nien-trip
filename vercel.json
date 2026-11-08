@@ -1,7 +1,11 @@
 {
   "functions": {
     "api/analyze.js": {
-      "includeFiles": "api/prompts/**"
+      "includeFiles": "api/prompts/**",
+      "maxDuration": 30
+    },
+    "api/rates.js": {
+      "maxDuration": 15
     }
   }
 }
