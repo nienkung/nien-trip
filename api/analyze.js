@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     const response = await fetch(targetUrl, {
       method: 'POST',
@@ -76,7 +76,12 @@ export default async function handler(req, res) {
               { text: `以下是使用者輸入的內容：\n${rawText}` }
             ]
           }
-        ]
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2048,
+          responseMimeType: 'application/json'
+        }
       })
     });
 
@@ -101,7 +106,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Vercel Serverless API Error:', error);
     if (error.name === 'AbortError') {
-      return res.status(504).json({ error: 'Gemini 回應超時，請再試一次！' });
+      return res.status(504).json({ error: 'Gemini 回應超時（25 秒），請再試一次！' });
     }
     return res.status(500).json({ error: '伺服器內部發生錯誤', details: error.message });
   }
