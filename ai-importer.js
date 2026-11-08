@@ -1,4 +1,3 @@
-// 打開/關閉 AI 隨手記彈窗
 window.openAiImportModal = function() {
   const modal = document.getElementById('aiImportModal');
   if (modal) modal.style.display = 'flex';
@@ -9,7 +8,6 @@ window.closeAiImportModal = function() {
   if (modal) modal.style.display = 'none';
 };
 
-// 切換「📍 行程」與「📝 記帳」雙分頁
 window.switchAiTab = function(type) {
   const btnSpot = document.getElementById('tabBtnSpot');
   const btnExp = document.getElementById('tabBtnExp');
@@ -29,8 +27,8 @@ window.switchAiTab = function(type) {
   }
 };
 
-// 📍 解析行程並【自動寫入 Firebase】
 window.processSpotAiImport = async function() {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可使用 AI 隨手記）。');
   const inputElem = document.getElementById('spotAiInput');
   const rawText = inputElem ? inputElem.value.trim() : '';
 
@@ -105,8 +103,8 @@ window.processSpotAiImport = async function() {
   }
 };
 
-// 📝 解析記帳並【自動寫入 Firebase】
 window.processExpAiImport = async function() {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可使用 AI 隨手記）。');
   const inputElem = document.getElementById('expAiInput');
   const rawText = inputElem ? inputElem.value.trim() : '';
 
