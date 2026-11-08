@@ -8,7 +8,7 @@ window.SUPER_ADMIN_EMAILS = [
   "moneynien@gmail.com"
 ];
 
-// 寫死匯率（備援；Step B 會改為後端即時匯率覆蓋 window.EXCHANGE_RATES）
+// 匯率（1 單位外幣 = 幾台幣）。此為備援值，載入後會被 /api/rates 的即時匯率覆蓋
 window.EXCHANGE_RATES = {
   TWD: 1.0,
   JPY: 0.21,
@@ -16,7 +16,55 @@ window.EXCHANGE_RATES = {
   EUR: 34.5,
   GBP: 41.0,
   KRW: 0.023,
-  THB: 0.92
+  THB: 0.92,
+  CNY: 4.5,
+  HKD: 4.1,
+  SGD: 24.0,
+  AUD: 21.0
+};
+
+// 支援的幣別（專案幣別設定可從這裡挑）
+window.SUPPORTED_CURRENCIES = ['TWD', 'JPY', 'USD', 'EUR', 'GBP', 'KRW', 'THB', 'CNY', 'HKD', 'SGD', 'AUD'];
+
+window.CURRENCY_INFO = {
+  TWD: { name: '新台幣', symbol: 'NT$' },
+  JPY: { name: '日圓',   symbol: '¥' },
+  USD: { name: '美金',   symbol: '$' },
+  EUR: { name: '歐元',   symbol: '€' },
+  GBP: { name: '英鎊',   symbol: '£' },
+  KRW: { name: '韓元',   symbol: '₩' },
+  THB: { name: '泰銖',   symbol: '฿' },
+  CNY: { name: '人民幣', symbol: '¥' },
+  HKD: { name: '港幣',   symbol: 'HK$' },
+  SGD: { name: '新加坡幣', symbol: 'S$' },
+  AUD: { name: '澳幣',   symbol: 'A$' }
+};
+
+// 專案可使用的幣別清單（記帳下拉會讀這個；舊專案未設定時給預設）
+window.getProjectCurrencies = function(proj) {
+  if (proj && Array.isArray(proj.currencies) && proj.currencies.length) return proj.currencies;
+  return ['JPY', 'TWD', 'USD', 'EUR'];
+};
+
+// 載入即時匯率（後端每日快取代理 /api/rates），失敗則沿用備援值
+window.ratesUpdatedAt = null;
+window.loadLiveRates = async function() {
+  try {
+    const res = await fetch('/api/rates');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.rates) {
+      Object.assign(window.EXCHANGE_RATES, data.rates);
+      window.EXCHANGE_RATES.TWD = 1.0;
+      window.ratesUpdatedAt = data.updatedAt || Date.now();
+      if (window.activeProjectData) {
+        if (window.renderExpenses) window.renderExpenses();
+        if (window.renderSettlement) window.renderSettlement();
+      }
+    }
+  } catch (e) {
+    console.warn('即時匯率載入失敗，改用內建備援匯率：', e);
+  }
 };
 
 // ===== 成員資料正規化（雙清單：members 有 email / externalPeople 只有名字）=====
@@ -171,3 +219,6 @@ window.switchView = function(viewId) {
   const target = document.getElementById('view-' + viewId);
   if (target) target.classList.add('active');
 };
+
+// 啟動時抓一次即時匯率
+window.loadLiveRates();
