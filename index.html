@@ -337,6 +337,10 @@
         <input type="text" id="newProjMembers" class="form-control" placeholder="蝦, 爸爸, 媽媽" value="蝦">
         <p style="font-size:11px; color:var(--sub-text); margin-top:4px;">你會自動成為團主；這裡填的人先列為「外部分帳人」，之後可在專案內的「👥 團員」把他們邀請成可登入的團員。</p>
       </div>
+      <div class="form-group">
+        <label class="form-label">本專案使用的幣別</label>
+        <div id="newCurrencyBox" class="checkbox-group"></div>
+      </div>
       <input type="hidden" id="newCoverIndex" value="-1">
       <div class="form-group">
         <label class="form-label">縮圖樣式</label>
@@ -376,6 +380,10 @@
       </div>
       <p style="font-size:11px; color:var(--sub-text); margin:-6px 0 12px;">※ 更動日期會自動重算行程天數，既有景點會盡量保留；縮短天數時超出的景點會被刪除。</p>
 
+      <div class="form-group">
+        <label class="form-label">本專案使用的幣別</label>
+        <div id="editCurrencyBox" class="checkbox-group"></div>
+      </div>
       <div class="form-group">
         <label class="form-label">縮圖樣式</label>
         <div id="editCoverPicker" class="cover-picker"></div>
@@ -508,12 +516,12 @@
     });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261108g"></script>
-  <script src="./app-state.js?v=20261108g"></script>
-  <script src="./dashboard.js?v=20261108g"></script>
-  <script src="./members.js?v=20261108g"></script>
-  <script src="./itinerary.js?v=20261108g"></script>
-  <script src="./expenses.js?v=20261108g"></script>
-  <script src="./ai-importer.js?v=20261108g"></script>
+  <script type="module" src="./firebase-config.js?v=20261108h"></script>
+  <script src="./app-state.js?v=20261108h"></script>
+  <script src="./dashboard.js?v=20261108h"></script>
+  <script src="./members.js?v=20261108h"></script>
+  <script src="./itinerary.js?v=20261108h"></script>
+  <script src="./expenses.js?v=20261108h"></script>
+  <script src="./ai-importer.js?v=20261108h"></script>
 </body>
 </html>
