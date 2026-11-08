@@ -256,7 +256,7 @@ window.renderSettlement = function() {
     ? `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin:4px 0 10px;">💱 即時匯率（更新於 ${new Date(window.ratesUpdatedAt).toLocaleString('zh-TW')}）</div>`
     : `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin:4px 0 10px;">💱 使用內建備援匯率</div>`;
 
-  let html = rateNote + `
+  let html = `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin-bottom:4px;">🔒 本頁為結算總覽（唯讀），僅可勾選轉帳完成狀態</div>` + rateNote + `
     <div class="card open" style="margin-top:4px;">
       <div class="card-header"><div class="card-title">📊 成員收支總覽 (TWD)</div></div>
       <div class="card-content">
@@ -289,23 +289,69 @@ window.renderSettlement = function() {
   let i = 0, j = 0;
   while (i < debtors.length && j < creditors.length) {
     const pay = Math.min(debtors[i].amount, creditors[j].amount);
-    transfers.push(`💳 <strong>${window.escapeHtml(debtors[i].name)}</strong> 應轉給 <strong>${window.escapeHtml(creditors[j].name)}</strong> <strong>NT$ ${Math.round(pay).toLocaleString()}</strong>`);
-
+    transfers.push({ from: debtors[i].name, to: creditors[j].name, amount: Math.round(pay) });
     debtors[i].amount -= pay;
     creditors[j].amount -= pay;
-
     if (debtors[i].amount <= 1) i++;
     if (creditors[j].amount <= 1) j++;
   }
+
+  const settlements = window.activeProjectData.settlements || {};
+  const canToggle = window.canEditContent(window.activeProjectData);
+  window._transferMap = {};
+
+  const transferHtml = transfers.length > 0 ? transfers.map(t => {
+    const key = settlementTransferKey(t.from, t.to);
+    window._transferMap[key] = { from: t.from, to: t.to, amount: t.amount };
+    const rec = settlements[key];
+    const done = !!(rec && rec.done);
+    const atStr = (done && rec.at) ? new Date(rec.at).toLocaleString('zh-TW') : '';
+    return `
+      <div class="transfer-row${done ? ' done' : ''}">
+        <input type="checkbox" class="transfer-check" ${done ? 'checked' : ''} ${canToggle ? '' : 'disabled'} onchange="toggleTransferDone('${key}')">
+        <div class="transfer-main">
+          <div class="transfer-line">💳 <strong>${window.escapeHtml(t.from)}</strong> → <strong>${window.escapeHtml(t.to)}</strong>　NT$ ${t.amount.toLocaleString()}</div>
+          ${done ? `<div class="transfer-done-at">✅ 已轉帳 · ${atStr}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('') : '<div style="font-size:13px; color:var(--sub-text);">已結清，無須轉帳！</div>';
 
   html += `
     <div class="card open">
       <div class="card-header"><div class="card-title">💡 建議轉帳方案</div></div>
       <div class="card-content">
-        ${transfers.length > 0 ? transfers.map(t => `<div style="padding:8px 0; font-size:14px;">${t}</div>`).join('') : '<div style="font-size:13px; color:var(--sub-text);">已結清，無須轉帳！</div>'}
+        ${transferHtml}
+        ${transfers.length > 0 ? `<div style="font-size:11px; color:var(--sub-text); margin-top:10px;">完成轉帳後勾選左側方塊，會記錄打勾時間。${canToggle ? '' : '（僅團員以上可勾選）'}</div>` : ''}
       </div>
     </div>
   `;
 
   container.innerHTML = html;
+};
+
+function settlementTransferKey(from, to) {
+  const s = x => String(x).replace(/[.#$\[\]\/\s]/g, '_');
+  return s(from) + '__' + s(to);
+}
+
+// 勾選/取消「已轉帳」，寫入 Firebase 並記錄時間
+window.toggleTransferDone = function(key) {
+  if (!window.canEditContent(window.activeProjectData)) return;
+  const info = window._transferMap ? window._transferMap[key] : null;
+  if (!info) return;
+  if (!window.activeProjectData.settlements) window.activeProjectData.settlements = {};
+
+  const ref = window.dbRef(window.db, `projects/${window.activeProjectId}/settlements/${key}`);
+  const cur = window.activeProjectData.settlements[key];
+
+  if (cur && cur.done) {
+    window.dbRemove(ref)
+      .then(() => { delete window.activeProjectData.settlements[key]; window.renderSettlement(); })
+      .catch(err => alert('更新失敗：' + err.message));
+  } else {
+    const rec = { from: info.from, to: info.to, amount: info.amount, done: true, at: Date.now() };
+    window.dbSet(ref, rec)
+      .then(() => { window.activeProjectData.settlements[key] = rec; window.renderSettlement(); })
+      .catch(err => alert('更新失敗：' + err.message));
+  }
 };
