@@ -57,16 +57,50 @@
     .main-container { max-width: 600px; margin: 0 auto; padding: 20px 16px 80px; }
     .section-title { font-size: 18px; font-weight: 800; color: var(--brand-dark); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
     .btn-add-project { background: var(--brand-main); color: #FFF; border: none; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 168, 150, 0.3); }
+
+    /* ===== 大廳：搜尋框 ===== */
+    .dash-search-wrap { margin-bottom: 18px; }
+    .dash-search { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1.5px solid var(--brand-border); font-size: 14px; font-weight: 600; background: #FFF; outline: none; transition: border-color .2s, box-shadow .2s; }
+    .dash-search:focus { border-color: var(--brand-main); box-shadow: 0 0 0 3px rgba(0,168,150,0.12); }
+
+    /* ===== 大廳：可收納分區 ===== */
+    .dash-section { margin-bottom: 18px; }
+    .dash-section-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 4px; margin-bottom: 10px; border-bottom: 2px solid var(--brand-border); }
+    .dash-section-title { font-size: 15px; font-weight: 800; color: var(--brand-dark); display: flex; align-items: center; gap: 8px; }
+    .dash-count { background: var(--brand-main); color: #FFF; font-size: 12px; font-weight: 800; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
+    .dash-section-header .chevron { width: 20px; height: 20px; stroke: var(--brand-main); flex-shrink: 0; transition: transform .3s ease; }
+    .dash-section.collapsed .chevron { transform: rotate(-90deg); }
+    .dash-section.collapsed .dash-section-body { display: none; }
+
     .project-grid { display: flex; flex-direction: column; gap: 14px; }
-    .project-card { background: #FFFFFF; border: 1.5px solid var(--brand-border); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--shadow-md); cursor: pointer; position: relative; }
-    .project-header { display: flex; justify-content: space-between; align-items: flex-start; }
+
+    /* ===== 大廳：專案卡片（含縮圖）===== */
+    .project-card { background: #FFFFFF; border: 1.5px solid var(--brand-border); border-radius: var(--radius-card); padding: 0; box-shadow: var(--shadow-md); cursor: pointer; position: relative; overflow: hidden; }
+    .project-cover { position: relative; height: 96px; display: flex; align-items: center; justify-content: center; }
+    .cover-emoji { font-size: 40px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.28)); }
+    .cover-days { position: absolute; left: 10px; bottom: 10px; background: rgba(0,0,0,0.45); color: #FFF; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 20px; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+    .card-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; }
+    .card-act { width: 30px; height: 30px; border: none; border-radius: 9px; background: rgba(255,255,255,0.92); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.18); }
+    .card-act:active { transform: scale(0.92); }
+    .card-act-danger { color: var(--danger); }
+    .project-body { padding: 14px 16px 16px; }
     .project-name { font-size: 17px; font-weight: 800; color: var(--brand-dark); }
     .project-dates { font-size: 13px; color: var(--brand-main); font-weight: 700; margin-top: 2px; }
-    .role-badge { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-top: 6px; }
+
+    .role-badge { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px; display: inline-block; }
     .role-owner { background: #FEFCBF; color: #744210; border: 1px solid #F6E05E; }
+    .role-admin { background: #E9D8FD; color: #553C9A; border: 1px solid #D6BCFA; }
     .role-member { background: #EBF8FF; color: #2B6CB0; border: 1px solid #90CDF4; }
     .role-viewer { background: #EDF2F7; color: #4A5568; border: 1px solid #CBD5E0; }
-    .project-members { margin-top: 8px; font-size: 12px; color: var(--sub-text); font-weight: 600; }
+
+    .member-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .member-chip { font-size: 12px; font-weight: 700; color: var(--brand-dark); background: var(--brand-bg); border: 1px solid var(--brand-border); padding: 3px 9px; border-radius: 20px; }
+    .member-chip-empty { color: var(--sub-text); background: #F7FAFC; border-color: #E2E8F0; }
+
+    /* ===== 大廳：空狀態 ===== */
+    .dash-empty { text-align: center; padding: 28px 16px; background: #FFF; border: 1.5px dashed var(--brand-border); border-radius: var(--radius-card); font-size: 30px; }
+    .dash-empty-text { font-size: 13px; color: var(--sub-text); font-weight: 600; margin-top: 8px; }
+
     .tab-bar { display: flex; background: #FFFFFF; border-radius: 14px; padding: 4px; margin-top: 10px; border: 1px solid var(--brand-border); box-shadow: var(--shadow-sm); }
     .tab-btn { flex: 1; padding: 9px 4px; font-size: 14px; font-weight: 800; color: var(--sub-text); background: transparent; border: none; border-radius: 10px; cursor: pointer; text-align: center; }
     .tab-btn.active { background: var(--brand-main); color: #FFFFFF; box-shadow: 0 2px 6px rgba(0, 168, 150, 0.3); }
@@ -133,10 +167,35 @@
     </div>
     <div class="main-container">
       <div class="section-title">
-        <span>🗂️ 全站公開旅遊專案</span>
+        <span>🗂️ 旅遊專案大廳</span>
         <button class="btn-add-project" onclick="openNewProjectModal()">＋ 建立新專案</button>
       </div>
-      <div class="project-grid" id="projectGridList"></div>
+
+      <div class="dash-search-wrap">
+        <input type="text" id="projectSearchInput" class="dash-search" placeholder="🔍 搜尋專案名稱或成員暱稱…" oninput="renderDashboardProjects()">
+      </div>
+
+      <!-- 我建立的專案 -->
+      <div class="dash-section" id="mineSection">
+        <div class="dash-section-header" onclick="toggleDashSection('mine')">
+          <div class="dash-section-title">👑 我建立的專案 <span class="dash-count" id="mineCount">0</span></div>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="dash-section-body">
+          <div class="project-grid" id="myProjectGrid"></div>
+        </div>
+      </div>
+
+      <!-- 他人的公開專案 -->
+      <div class="dash-section" id="othersSection">
+        <div class="dash-section-header" onclick="toggleDashSection('others')">
+          <div class="dash-section-title">🌏 他人的公開專案 <span class="dash-count" id="othersCount">0</span></div>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="dash-section-body">
+          <div class="project-grid" id="othersProjectGrid"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -160,12 +219,10 @@
       </div>
 
       <div id="projectTabContent" style="margin-top: 16px;">
-        <!-- 行程規劃 subtab -->
         <div id="subtab-itinerary" class="tab-subcontent active">
           <div id="itineraryContainer"></div>
         </div>
 
-        <!-- 旅程記帳 subtab -->
         <div id="subtab-expense" class="tab-subcontent">
           <div class="card open">
             <div class="card-header"><div class="card-title">➕ 新增記帳</div></div>
@@ -202,7 +259,6 @@
           <div id="expenseDayList"></div>
         </div>
 
-        <!-- 結算拆帳 subtab -->
         <div id="subtab-settlement" class="tab-subcontent">
           <div style="text-align:center; padding:20px; background:#fff; border-radius:16px; border:1px solid var(--brand-border); box-shadow:var(--shadow-md);">
             <div style="font-size:14px; color:var(--sub-text); font-weight:700;">專案總支出</div>
@@ -214,7 +270,7 @@
     </div>
   </div>
 
-  <!-- 彈窗 1: 建立新專案 Modal -->
+  <!-- 彈窗 Modal 區塊 -->
   <div id="createProjectModal" class="modal-mask">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -243,7 +299,21 @@
     </div>
   </div>
 
-  <!-- 彈窗 2: 行程景點新增/修改 Modal -->
+  <div id="renameProjectModal" class="modal-mask">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:17px; font-weight:800;">✏️ 重新命名專案</h3>
+        <button onclick="closeRenameModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+      <input type="hidden" id="renameProjId">
+      <div class="form-group">
+        <label class="form-label">專案名稱</label>
+        <input type="text" id="renameProjTitle" class="form-control" placeholder="請輸入新的專案名稱">
+      </div>
+      <button class="btn-submit" onclick="submitRenameProject()">儲存</button>
+    </div>
+  </div>
+
   <div id="spotModal" class="modal-mask">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -268,7 +338,6 @@
     </div>
   </div>
 
-  <!-- 彈窗 3: 記帳修改 Modal -->
   <div id="editExpenseModal" class="modal-mask">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -304,25 +373,21 @@
     </div>
   </div>
 
-  <!-- 彈窗 4: Gemini AI 隨手記匯入彈窗 (雙分頁) -->
   <div id="aiImportModal" class="modal-mask">
     <div class="modal-box" style="max-width:550px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <h3 style="font-size:17px; font-weight:800;">🤖 Gemini AI 智慧隨手記</h3>
         <button onclick="closeAiImportModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
       </div>
-
       <div class="tab-bar" style="margin-bottom:14px; display:flex; gap:10px;">
         <button id="tabBtnSpot" class="tab-btn active" style="flex:1;" onclick="switchAiTab('spot')">📍 語音/文字新增行程</button>
         <button id="tabBtnExp" class="tab-btn" style="flex:1;" onclick="switchAiTab('exp')">📝 語音/文字新增記帳</button>
       </div>
-
       <div id="aiSectionSpot">
         <p style="font-size:12px; color:var(--sub-text); margin-bottom:6px;">用口語隨手寫或貼上文章，AI 將自動判斷天數、時間與景點：</p>
         <textarea id="spotAiInput" class="form-control" rows="6" placeholder="例如：第一天晚上七點要去京都車站拉麵小路吃拉麵，吃完去清水寺看夜楓"></textarea>
         <button id="spotAiBtn" class="btn-submit" style="margin-top:10px; width:100%;" onclick="processSpotAiImport()">📍 智慧理解並寫入行程</button>
       </div>
-
       <div id="aiSectionExp" style="display:none;">
         <p style="font-size:12px; color:var(--sub-text); margin-bottom:6px;">用口語隨手寫或貼上明細，AI 將自動判斷天數、品名、金額與幣別：</p>
         <textarea id="expAiInput" class="form-control" rows="6" placeholder="例如：第一天買了超商零食 1200 日圓，晚上拉麵 3000 日圓"></textarea>
@@ -331,12 +396,11 @@
     </div>
   </div>
 
-  <!-- 載入 6 個專屬模組 -->
-  <script type="module" src="./firebase-config.js?v=20261108"></script>
-  <script src="./app-state.js?v=20261108"></script>
-  <script src="./dashboard.js?v=20261108"></script>
-  <script src="./itinerary.js?v=20261108"></script>
-  <script src="./expenses.js?v=20261108"></script>
-  <script src="./ai-importer.js?v=20261108"></script>
+  <script type="module" src="./firebase-config.js?v=20261108b"></script>
+  <script src="./app-state.js?v=20261108b"></script>
+  <script src="./dashboard.js?v=20261108b"></script>
+  <script src="./itinerary.js?v=20261108b"></script>
+  <script src="./expenses.js?v=20261108b"></script>
+  <script src="./ai-importer.js?v=20261108b"></script>
 </body>
 </html>
