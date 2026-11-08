@@ -199,6 +199,26 @@ window.selectCover = function(scope, idx) {
   renderCoverPicker(scope, idx);
 };
 
+// 幣別多選（建立 / 編輯共用）
+const CURRENCY_PICKER_MAP = { new: 'newCurrencyBox', edit: 'editCurrencyBox' };
+
+function renderCurrencyPicker(scope, selectedCodes) {
+  const box = document.getElementById(CURRENCY_PICKER_MAP[scope]);
+  if (!box) return;
+  const sel = Array.isArray(selectedCodes) ? selectedCodes : [];
+  box.innerHTML = (window.SUPPORTED_CURRENCIES || []).map(code => {
+    const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
+    const checked = sel.includes(code) ? 'checked' : '';
+    return `<label class="checkbox-label"><input type="checkbox" value="${code}" ${checked}> ${code} ${info.symbol || ''}</label>`;
+  }).join('');
+}
+
+function readCurrencyPicker(scope) {
+  const box = document.getElementById(CURRENCY_PICKER_MAP[scope]);
+  if (!box) return [];
+  return Array.from(box.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+}
+
 window.openNewProjectModal = function() {
   // 重置縮圖欄位（避免沿用上一次的設定）
   const coverImg = document.getElementById('newProjCoverImage');
@@ -206,6 +226,7 @@ window.openNewProjectModal = function() {
   const coverIdx = document.getElementById('newCoverIndex');
   if (coverIdx) coverIdx.value = -1;
   renderCoverPicker('new', -1);
+  renderCurrencyPicker('new', ['JPY', 'TWD']);
 
   const modal = document.getElementById('createProjectModal');
   if (modal) modal.style.display = 'flex';
@@ -284,6 +305,8 @@ window.submitCreateProject = async function() {
 
   const coverIndex = parseInt(document.getElementById('newCoverIndex').value, 10);
   const coverImage = (document.getElementById('newProjCoverImage').value || '').trim();
+  let currencies = readCurrencyPicker('new');
+  if (!currencies.length) currencies = ['JPY', 'TWD'];
 
   const newProjData = {
     title: title,
@@ -294,6 +317,7 @@ window.submitCreateProject = async function() {
     ownerEmail: ownerEmail,
     members: members,
     externalPeople: externalPeople,
+    currencies: currencies,
     itinerary: itinerary,
     expenses: {},
     createdAt: Date.now()
@@ -332,6 +356,7 @@ window.openEditProjectModal = function(id) {
   const coverIndex = (typeof p.coverIndex === 'number') ? p.coverIndex : -1;
   document.getElementById('editCoverIndex').value = coverIndex;
   renderCoverPicker('edit', coverIndex);
+  renderCurrencyPicker('edit', window.getProjectCurrencies(p));
 
   // 網站管理員才顯示「重新指定團主」
   const ownerSection = document.getElementById('editOwnerSection');
@@ -372,12 +397,16 @@ window.submitEditProject = function() {
   const end = new Date(endDateStr);
   if (start > end) return alert('結束日期不能早於出發日期！');
 
+  let currencies = readCurrencyPicker('edit');
+  if (!currencies.length) currencies = ['JPY', 'TWD'];
+
   const updates = {
     title,
     startDate: startDateStr,
     endDate: endDateStr,
     coverImage: coverImage || null,
-    coverIndex: (isNaN(coverIndex) || coverIndex < 0) ? null : coverIndex
+    coverIndex: (isNaN(coverIndex) || coverIndex < 0) ? null : coverIndex,
+    currencies: currencies
   };
 
   // 日期有變 → 重建行程天數骨架，保留既有景點
