@@ -1,38 +1,56 @@
-window.openAiImportModal = function() {
-  const modal = document.getElementById('aiImportModal');
-  if (modal) modal.style.display = 'flex';
-};
+// AI 隨手記 / Markdown 匯入：依頁籤情境開啟，行程對應行程、記帳對應記帳，皆送同一支 Gemini API
 
 window.closeAiImportModal = function() {
   const modal = document.getElementById('aiImportModal');
   if (modal) modal.style.display = 'none';
 };
 
-window.switchAiTab = function(type) {
-  const btnSpot = document.getElementById('tabBtnSpot');
-  const btnExp = document.getElementById('tabBtnExp');
-  const secSpot = document.getElementById('aiSectionSpot');
-  const secExp = document.getElementById('aiSectionExp');
+function showAiModal(which, title) {
+  document.getElementById('aiModalTitle').innerText = title;
+  document.getElementById('aiSectionSpot').style.display = (which === 'spot') ? 'block' : 'none';
+  document.getElementById('aiSectionExp').style.display = (which === 'exp') ? 'block' : 'none';
+  const modal = document.getElementById('aiImportModal');
+  if (modal) modal.style.display = 'flex';
+}
 
-  if (type === 'spot') {
-    if (btnSpot) btnSpot.classList.add('active');
-    if (btnExp) btnExp.classList.remove('active');
-    if (secSpot) secSpot.style.display = 'block';
-    if (secExp) secExp.style.display = 'none';
+// 行程匯入（mode: 'ai' 隨手口語 / 'md' Markdown 批次）
+window.openSpotAiModal = function(mode) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可匯入）。');
+  const hint = document.getElementById('aiSpotHint');
+  const ta = document.getElementById('spotAiInput');
+  if (mode === 'md') {
+    hint.textContent = '貼上 Markdown 或整理好的清單（可一次多天），AI 會批次解析成行程景點。';
+    ta.placeholder = '## D1\n- 19:00 京都車站拉麵小路\n- 清水寺看夜楓\n\n## D2\n- 09:00 伏見稻荷大社';
+    showAiModal('spot', '📝 Markdown 匯入行程');
   } else {
-    if (btnExp) btnExp.classList.add('active');
-    if (btnSpot) btnSpot.classList.remove('active');
-    if (secExp) secExp.style.display = 'block';
-    if (secSpot) secSpot.style.display = 'none';
+    hint.textContent = '用口語隨手寫或貼上文章，AI 自動判斷天數、時間與景點。';
+    ta.placeholder = '例如：第一天晚上七點去京都車站拉麵小路吃拉麵，吃完去清水寺看夜楓';
+    showAiModal('spot', '🤖 AI 隨手記（行程）');
+  }
+};
+
+// 記帳匯入
+window.openExpAiModal = function(mode) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可匯入）。');
+  const hint = document.getElementById('aiExpHint');
+  const ta = document.getElementById('expAiInput');
+  if (mode === 'md') {
+    hint.textContent = '貼上 Markdown 或整理好的消費清單，AI 會批次解析成記帳。';
+    ta.placeholder = '## D1\n- 超商零食 1200 JPY\n- 晚餐拉麵 3000 JPY\n\n## D2\n- 門票 800 JPY';
+    showAiModal('exp', '📝 Markdown 匯入記帳');
+  } else {
+    hint.textContent = '用口語隨手寫或貼上明細，AI 自動判斷天數、品名、金額與幣別。';
+    ta.placeholder = '例如：第一天買了超商零食 1200 日圓，晚上拉麵 3000 日圓';
+    showAiModal('exp', '🤖 AI 隨手記（記帳）');
   }
 };
 
 window.processSpotAiImport = async function() {
-  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可使用 AI 隨手記）。');
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
   const inputElem = document.getElementById('spotAiInput');
   const rawText = inputElem ? inputElem.value.trim() : '';
 
-  if (!rawText) return alert('請輸入口語行程內容或貼上網頁文字！');
+  if (!rawText) return alert('請輸入內容或貼上文字！');
   if (!window.activeProjectId || !window.activeProjectData) return alert('請先進入公開專案！');
 
   const submitBtn = document.getElementById('spotAiBtn');
@@ -74,6 +92,8 @@ window.processSpotAiImport = async function() {
         window.activeProjectData.itinerary[dKey].spots.push({
           time: spot.time || '',
           title: spot.title || '景點',
+          mapUrl: '',
+          thumbUrl: '',
           desc: spot.desc || ''
         });
         spotCount++;
@@ -104,11 +124,11 @@ window.processSpotAiImport = async function() {
 };
 
 window.processExpAiImport = async function() {
-  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可使用 AI 隨手記）。');
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
   const inputElem = document.getElementById('expAiInput');
   const rawText = inputElem ? inputElem.value.trim() : '';
 
-  if (!rawText) return alert('請輸入口語消費內容或貼上明細！');
+  if (!rawText) return alert('請輸入內容或貼上明細！');
   if (!window.activeProjectId) return alert('請先進入公開專案！');
 
   const submitBtn = document.getElementById('expAiBtn');
