@@ -3,13 +3,11 @@ window.allProjects = {};
 window.activeProjectId = null;
 window.activeProjectData = null;
 
-// 超級管理員清單
 window.SUPER_ADMIN_EMAILS = [
   "moneynien@gmail.com",
   "robertcl.kung@ogilvy.com"
 ];
 
-// 多幣別動態匯率
 window.EXCHANGE_RATES = {
   TWD: 1.0,
   JPY: 0.21,
@@ -20,15 +18,34 @@ window.EXCHANGE_RATES = {
   THB: 0.92
 };
 
-// 權限判斷：是否為專案擁有者或超級管理員
+// ===== 權限判定 =====
+
+// 網站管理員（super）：email 在白名單中，可對任何專案做所有操作
+window.isSuperAdmin = function() {
+  return !!(window.currentUser && window.SUPER_ADMIN_EMAILS.includes(window.currentUser.email));
+};
+
+// 嚴格判定「這是不是我建立的專案」（不含管理員 override），用於大廳的「我的 / 他人」分區
+window.isMyProject = function(projData) {
+  if (!window.currentUser || !projData) return false;
+  return projData.ownerUid === window.currentUser.uid || projData.ownerName === window.currentUser.name;
+};
+
+// 是否可管理（修改 / 刪除 / 改名 / 複製）：團主本人或網站管理員
+window.canManageProject = function(projData) {
+  return window.isSuperAdmin() || window.isMyProject(projData);
+};
+
+// 舊函式保留相容（部分頁面可能仍引用）
 window.isProjectOwner = function(projData) {
   if (!window.currentUser) return false;
-  if (window.SUPER_ADMIN_EMAILS.includes(window.currentUser.email)) return true;
+  if (window.isSuperAdmin()) return true;
   if (!projData) return false;
   return projData.ownerUid === window.currentUser.uid || projData.ownerName === window.currentUser.name;
 };
 
-// 動態取得專案天數清單 (D0 ~ DN)
+// ===== 共用工具 =====
+
 window.getDynamicProjectDays = function(projData) {
   if (!projData || !projData.itinerary) return ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
   const keys = Object.keys(projData.itinerary);
@@ -36,13 +53,58 @@ window.getDynamicProjectDays = function(projData) {
   return keys;
 };
 
-// 轉台幣換算
 window.convertToTWD = function(amount, currency) {
   const rate = window.EXCHANGE_RATES[currency] || 1.0;
   return amount * rate;
 };
 
-// 切換頁面 View
+// 計算專案天數：優先用起迄日期，退而求其次用 itinerary（排除 D0 行前準備）
+window.getProjectDayCount = function(p) {
+  if (!p) return 0;
+  if (p.startDate && p.endDate) {
+    const s = new Date(p.startDate);
+    const e = new Date(p.endDate);
+    const d = Math.ceil(Math.abs(e - s) / (1000 * 60 * 60 * 24)) + 1;
+    if (!isNaN(d) && d > 0) return d;
+  }
+  if (p.itinerary) {
+    return Object.keys(p.itinerary).filter(k => k !== 'D0').length;
+  }
+  return 0;
+};
+
+// 依專案 id + 標題決定性地挑一組縮圖（漸層底 + emoji），無真實圖片時使用
+window.TRIP_COVERS = [
+  { grad: 'linear-gradient(135deg, #00A896, #0F3D3E)', emoji: '🏯' },
+  { grad: 'linear-gradient(135deg, #667EEA, #764BA2)', emoji: '🗼' },
+  { grad: 'linear-gradient(135deg, #F6AD55, #DD6B20)', emoji: '🏖️' },
+  { grad: 'linear-gradient(135deg, #4FD1C5, #2C7A7B)', emoji: '⛩️' },
+  { grad: 'linear-gradient(135deg, #FC8181, #C53030)', emoji: '🗻' },
+  { grad: 'linear-gradient(135deg, #63B3ED, #3182CE)', emoji: '✈️' },
+  { grad: 'linear-gradient(135deg, #B794F4, #805AD5)', emoji: '🌸' },
+  { grad: 'linear-gradient(135deg, #68D391, #2F855A)', emoji: '🚅' }
+];
+
+window.getProjectCover = function(p, id) {
+  const key = String(id || '') + String((p && p.title) || '');
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) & 0x7fffffff;
+  }
+  const idx = hash % window.TRIP_COVERS.length;
+  return window.TRIP_COVERS[idx];
+};
+
+// 防 XSS / 避免標題含特殊字元破版
+window.escapeHtml = function(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 window.switchView = function(viewId) {
   document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
   const target = document.getElementById('view-' + viewId);
