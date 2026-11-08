@@ -123,6 +123,10 @@
     .spot-time { display: inline-block; background: #E6FFFA; color: var(--brand-main); font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--brand-border); }
     .spot-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); padding-right: 70px; }
     .spot-desc { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.5; white-space: pre-line; }
+    .spot-thumb { width: 100%; height: 150px; object-fit: cover; border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--brand-border); }
+    .spot-thumb-preview { width: 100%; max-height: 160px; object-fit: cover; border-radius: 10px; margin-top: 8px; border: 1px solid var(--brand-border); }
+    .gmp-wrap { width: 100%; }
+    .gmp-wrap gmp-place-autocomplete { width: 100%; }
     .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     .map-btn { display: inline-flex; align-items: center; gap: 5px; background: var(--brand-main); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; }
     .spot-actions { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
@@ -391,8 +395,22 @@
         <input type="text" id="spotTimeInput" class="form-control" placeholder="例如：10:00">
       </div>
       <div class="form-group">
-        <label class="form-label">景點 / 活動名稱</label>
+        <label class="form-label">Google 地點搜尋</label>
+        <div id="spotPlaceContainer" class="gmp-wrap"></div>
+        <p id="spotPlaceHint" style="font-size:11px; color:var(--sub-text); margin-top:4px;"></p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">地點 / 景點名稱</label>
         <input type="text" id="spotTitleInput" class="form-control" placeholder="例如：清水寺舞台" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Google Map 連結</label>
+        <input type="text" id="spotMapUrl" class="form-control" placeholder="選地點會自動帶入，也可自行貼上">
+      </div>
+      <div class="form-group">
+        <label class="form-label">縮圖連結</label>
+        <input type="text" id="spotThumbUrl" class="form-control" placeholder="圖片網址（選填）" oninput="updateSpotThumbPreview()">
+        <img id="spotThumbPreview" class="spot-thumb-preview" alt="" style="display:none;" onerror="this.style.display='none'">
       </div>
       <div class="form-group">
         <label class="form-label">詳細說明 / 筆記</label>
@@ -470,12 +488,22 @@
     </div>
   </div>
 
-  <script type="module" src="./firebase-config.js?v=20261108e"></script>
-  <script src="./app-state.js?v=20261108e"></script>
-  <script src="./dashboard.js?v=20261108e"></script>
-  <script src="./members.js?v=20261108e"></script>
-  <script src="./itinerary.js?v=20261108e"></script>
-  <script src="./expenses.js?v=20261108e"></script>
-  <script src="./ai-importer.js?v=20261108e"></script>
+  <!-- Google Maps Platform（行程地點自動搜尋）。此金鑰會曝露在前端屬正常；請在 Google Cloud 用「HTTP 參照網址」把它限制到 nien-trip.vercel.app/* 以防盜用。 -->
+  <script>
+    (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+      key: "AIzaSyCSeCTJfQEq8ibby7WG13pRunFE8xrsDbE",
+      v: "weekly",
+      language: "zh-TW",
+      region: "TW"
+    });
+  </script>
+
+  <script type="module" src="./firebase-config.js?v=20261108f"></script>
+  <script src="./app-state.js?v=20261108f"></script>
+  <script src="./dashboard.js?v=20261108f"></script>
+  <script src="./members.js?v=20261108f"></script>
+  <script src="./itinerary.js?v=20261108f"></script>
+  <script src="./expenses.js?v=20261108f"></script>
+  <script src="./ai-importer.js?v=20261108f"></script>
 </body>
 </html>
