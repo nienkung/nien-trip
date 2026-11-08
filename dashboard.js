@@ -1,5 +1,4 @@
 window.addEventListener('DOMContentLoaded', () => {
-  // 安全輪詢等待 Auth 模組完成
   const checkAuthTimer = setInterval(() => {
     if (window.auth && window.onAuthStateChanged) {
       clearInterval(checkAuthTimer);
@@ -12,14 +11,11 @@ window.initFirebaseAuthListener = function() {
   try {
     window.onAuthStateChanged(window.auth, (user) => {
       if (user) {
-        window.currentUser = { name: user.displayName || '錢粘', email: user.email };
+        window.currentUser = { uid: user.uid, name: user.displayName || '錢粘', email: user.email };
         const nameElem = document.getElementById('dashUserName');
         if (nameElem) nameElem.innerText = window.currentUser.name;
         
-        // 1. 成功登入，切換至大廳畫面
         window.switchView('dashboard');
-        
-        // 2. 開始讀取雲端專案資料
         window.initFirebaseProjectsSync();
       } else {
         window.currentUser = null;
@@ -33,19 +29,15 @@ window.initFirebaseAuthListener = function() {
 
 window.handleGoogleLogin = function() {
   if (!window.auth || !window.googleProvider || !window.signInWithPopup) {
-    alert('系統登入模組載入中，請稍候 2 秒再試一次！');
-    return;
+    return alert('系統登入模組載入中，請稍候 2 秒再試一次！');
   }
-
   window.signInWithPopup(window.auth, window.googleProvider)
     .then((result) => {
-      // 3. 點選 Email 登入成功後，立刻手動更新狀態並切換頁面
       const user = result.user;
-      window.currentUser = { name: user.displayName || '錢粘', email: user.email };
+      window.currentUser = { uid: user.uid, name: user.displayName || '錢粘', email: user.email };
       const nameElem = document.getElementById('dashUserName');
       if (nameElem) nameElem.innerText = window.currentUser.name;
       
-      // 切換至大廳並讀取資料
       window.switchView('dashboard');
       window.initFirebaseProjectsSync();
     })
@@ -74,20 +66,122 @@ window.initFirebaseProjectsSync = function() {
   });
 };
 
+// 渲染大廳專案卡片 (含權限 Badge 標籤)
 window.renderDashboardProjects = function() {
   const grid = document.getElementById('projectGridList');
   if (!grid) return;
   const entries = Object.entries(window.allProjects || {});
-  grid.innerHTML = entries.map(([id, p]) => `
-    <div class="project-card" onclick="enterProject('${id}')">
-      <div class="project-header">
-        <div>
-          <div class="project-name">${p.title}</div>
-          <div class="project-dates">📅 ${p.dates}</div>
+  
+  if (entries.length === 0) {
+    grid.innerHTML = '<div style="text-align:center; padding:30px; color:var(--sub-text);">目前尚無專案，請點擊上方按鈕建立新專案！</div>';
+    return;
+  }
+
+  grid.innerHTML = entries.map(([id, p]) => {
+    const isOwner = window.isProjectOwner(p);
+    const roleBadge = isOwner 
+      ? `<span class="role-badge role-owner">👑 專案建立者</span>`
+      : `<span class="role-badge role-member">👥 協同成員</span>`;
+    
+    const membersStr = Array.isArray(p.members) ? p.members.join(', ') : (p.members || '無');
+
+    return `
+      <div class="project-card" onclick="enterProject('${id}')">
+        <div class="project-header">
+          <div>
+            <div class="project-name">${p.title}</div>
+            <div class="project-dates">📅 ${p.startDate || ''} ~ ${p.endDate || ''}</div>
+            ${roleBadge}
+          </div>
         </div>
+        <div class="project-members">成員：${membersStr}</div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
+};
+
+// 打開建立專案 Modal
+window.openNewProjectModal = function() {
+  const modal = document.getElementById('createProjectModal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.closeNewProjectModal = function() {
+  const modal = document.getElementById('createProjectModal');
+  if (modal) modal.style.display = 'none';
+};
+
+// 提交建立專案（日曆起迄算日 + 自動生成 Day 1~N 格式化標題）
+window.submitCreateProject = async function() {
+  const title = document.getElementById('newProjTitle').value.trim();
+  const startDateStr = document.getElementById('newProjStartDate').value;
+  const endDateStr = document.getElementById('newProjEndDate').value;
+  const membersRaw = document.getElementById('newProjMembers').value.trim();
+
+  if (!title || !startDateStr || !endDateStr) {
+    return alert('請填寫完整專案名稱與起迄日期！');
+  }
+
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+
+  if (start > end) {
+    return alert('結束日期不能早於出發日期！');
+  }
+
+  const membersArr = membersRaw ? membersRaw.split(',').map(m => m.trim()).filter(Boolean) : ['錢粘'];
+  if (window.currentUser && !membersArr.includes(window.currentUser.name)) {
+    membersArr.unshift(window.currentUser.name);
+  }
+
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  const itinerary = {
+    "D0": { title: "D0 (行前準備)", spots: [] }
+  };
+  const weekMap = ['日', '一', '二', '三', '四', '五', '六'];
+
+  for (let i = 0; i < diffDays; i++) {
+    const current = new Date(start);
+    current.setDate(start.getDate() + i);
+
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
+    const w = weekMap[current.getDay()];
+
+    const dayKey = `D${i + 1}`;
+    itinerary[dayKey] = {
+      title: `${dayKey} (${m}/${d} 週${w})`,
+      spots: []
+    };
+  }
+
+  const newProjData = {
+    title: title,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    ownerUid: window.currentUser ? window.currentUser.uid : 'anonymous',
+    ownerName: window.currentUser ? window.currentUser.name : '錢粘',
+    members: membersArr,
+    itinerary: itinerary,
+    expenses: {},
+    createdAt: Date.now()
+  };
+
+  if (window.dbPush && window.dbRef && window.db) {
+    try {
+      const projectsRef = window.dbRef(window.db, 'projects');
+      const newRef = await window.dbPush(projectsRef, newProjData);
+      alert('🎉 專案建立成功！日曆天數與成員名單已自動初始化！');
+      window.closeNewProjectModal();
+      window.enterProject(newRef.key);
+    } catch (err) {
+      alert('建立失敗：' + err.message);
+    }
+  } else {
+    alert('Firebase 未妥善初始化！');
+  }
 };
 
 window.enterProject = function(projectId) {
@@ -97,10 +191,12 @@ window.enterProject = function(projectId) {
 
   const titleElem = document.getElementById('activeProjectTitle');
   if (titleElem) titleElem.innerText = window.activeProjectData.title;
-  
+
   if (window.renderItineraryFromJSON) window.renderItineraryFromJSON(window.activeProjectData.itinerary);
   if (window.updateExpenseFormOptions) window.updateExpenseFormOptions();
   if (window.renderExpenses) window.renderExpenses();
+  if (window.renderSettlement) window.renderSettlement();
+  
   window.switchView('project');
 };
 
