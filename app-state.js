@@ -3,9 +3,9 @@ window.allProjects = {};
 window.activeProjectId = null;
 window.activeProjectData = null;
 
+// 網站管理員（super 權限）：可對任何專案做所有操作，含重新指定團主
 window.SUPER_ADMIN_EMAILS = [
-  "moneynien@gmail.com",
-  "robertcl.kung@ogilvy.com"
+  "moneynien@gmail.com"
 ];
 
 window.EXCHANGE_RATES = {
@@ -20,7 +20,7 @@ window.EXCHANGE_RATES = {
 
 // ===== 權限判定 =====
 
-// 網站管理員（super）：email 在白名單中，可對任何專案做所有操作
+// 網站管理員（super）：email 在白名單中
 window.isSuperAdmin = function() {
   return !!(window.currentUser && window.SUPER_ADMIN_EMAILS.includes(window.currentUser.email));
 };
@@ -31,7 +31,7 @@ window.isMyProject = function(projData) {
   return projData.ownerUid === window.currentUser.uid || projData.ownerName === window.currentUser.name;
 };
 
-// 是否可管理（修改 / 刪除 / 改名 / 複製）：團主本人或網站管理員
+// 是否可管理（修改 / 刪除 / 改名 / 複製 / 重新指定團主）：團主本人或網站管理員
 window.canManageProject = function(projData) {
   return window.isSuperAdmin() || window.isMyProject(projData);
 };
@@ -73,7 +73,7 @@ window.getProjectDayCount = function(p) {
   return 0;
 };
 
-// 依專案 id + 標題決定性地挑一組縮圖（漸層底 + emoji），無真實圖片時使用
+// 縮圖樣式庫（漸層底 + emoji）
 window.TRIP_COVERS = [
   { grad: 'linear-gradient(135deg, #00A896, #0F3D3E)', emoji: '🏯' },
   { grad: 'linear-gradient(135deg, #667EEA, #764BA2)', emoji: '🗼' },
@@ -85,7 +85,11 @@ window.TRIP_COVERS = [
   { grad: 'linear-gradient(135deg, #68D391, #2F855A)', emoji: '🚅' }
 ];
 
+// 取得專案縮圖樣式：優先用手動指定的 coverIndex，否則依 id+標題決定性雜湊
 window.getProjectCover = function(p, id) {
+  if (p && typeof p.coverIndex === 'number' && window.TRIP_COVERS[p.coverIndex]) {
+    return window.TRIP_COVERS[p.coverIndex];
+  }
   const key = String(id || '') + String((p && p.title) || '');
   let hash = 0;
   for (let i = 0; i < key.length; i++) {
