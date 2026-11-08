@@ -3,6 +3,7 @@ window.allProjects = {};
 window.activeProjectId = null;
 window.activeProjectData = null;
 
+// 超級管理員清單
 window.SUPER_ADMIN_EMAILS = [
   "moneynien@gmail.com",
   "robertcl.kung@ogilvy.com"
@@ -19,32 +20,31 @@ window.EXCHANGE_RATES = {
   THB: 0.92
 };
 
-// 根據專案動態計算天數（例如：10天會產生 D0 ~ D10）
-window.getDynamicProjectDays = function(projData) {
-  let totalDays = 6;
-  if (projData && projData.dates) {
-    const match = projData.dates.match(/(\d+)\s*天/);
-    if (match && match[1]) {
-      totalDays = parseInt(match[1], 10);
-    }
-  }
-  const daysList = ['D0'];
-  for (let i = 1; i <= totalDays; i++) {
-    daysList.push(`D${i}`);
-  }
-  return daysList;
+// 權限判斷：是否為專案擁有者或超級管理員
+window.isProjectOwner = function(projData) {
+  if (!window.currentUser) return false;
+  if (window.SUPER_ADMIN_EMAILS.includes(window.currentUser.email)) return true;
+  if (!projData) return false;
+  return projData.ownerUid === window.currentUser.uid || projData.ownerName === window.currentUser.name;
 };
 
+// 動態取得專案天數清單 (D0 ~ DN)
+window.getDynamicProjectDays = function(projData) {
+  if (!projData || !projData.itinerary) return ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
+  const keys = Object.keys(projData.itinerary);
+  if (!keys.includes('D0')) keys.unshift('D0');
+  return keys;
+};
+
+// 轉台幣換算
 window.convertToTWD = function(amount, currency) {
   const rate = window.EXCHANGE_RATES[currency] || 1.0;
   return amount * rate;
 };
 
-window.encodeEmail = function(email) { 
-  return email ? email.replace(/\./g, '_').replace(/@/g, '_at_') : ''; 
-};
-
+// 切換頁面 View
 window.switchView = function(viewId) {
   document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
-  document.getElementById('view-' + viewId).classList.add('active');
+  const target = document.getElementById('view-' + viewId);
+  if (target) target.classList.add('active');
 };
