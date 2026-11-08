@@ -97,6 +97,11 @@
     .member-chip { font-size: 12px; font-weight: 700; color: var(--brand-dark); background: var(--brand-bg); border: 1px solid var(--brand-border); padding: 3px 9px; border-radius: 20px; }
     .member-chip-empty { color: var(--sub-text); background: #F7FAFC; border-color: #E2E8F0; }
 
+    /* ===== 編輯專案：縮圖選擇器 ===== */
+    .cover-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .cover-swatch { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; border: 3px solid transparent; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+    .cover-swatch.selected { border-color: var(--brand-dark); box-shadow: 0 0 0 2px #fff, 0 0 0 5px var(--brand-main); }
+
     /* ===== 大廳：空狀態 ===== */
     .dash-empty { text-align: center; padding: 28px 16px; background: #FFF; border: 1.5px dashed var(--brand-border); border-radius: var(--radius-card); font-size: 30px; }
     .dash-empty-text { font-size: 13px; color: var(--sub-text); font-weight: 600; margin-top: 8px; }
@@ -299,18 +304,49 @@
     </div>
   </div>
 
-  <div id="renameProjectModal" class="modal-mask">
+  <div id="editProjectModal" class="modal-mask">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <h3 style="font-size:17px; font-weight:800;">✏️ 重新命名專案</h3>
-        <button onclick="closeRenameModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+        <h3 style="font-size:17px; font-weight:800;">✏️ 編輯專案</h3>
+        <button onclick="closeEditProjectModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
       </div>
-      <input type="hidden" id="renameProjId">
+      <input type="hidden" id="editProjId">
+      <input type="hidden" id="editCoverIndex" value="-1">
+
       <div class="form-group">
         <label class="form-label">專案名稱</label>
-        <input type="text" id="renameProjTitle" class="form-control" placeholder="請輸入新的專案名稱">
+        <input type="text" id="editProjTitle" class="form-control" placeholder="請輸入專案名稱">
       </div>
-      <button class="btn-submit" onclick="submitRenameProject()">儲存</button>
+
+      <div style="display:flex; gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">出發日期</label>
+          <input type="date" id="editProjStartDate" class="form-control">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">結束日期</label>
+          <input type="date" id="editProjEndDate" class="form-control">
+        </div>
+      </div>
+      <p style="font-size:11px; color:var(--sub-text); margin:-6px 0 12px;">※ 更動日期會自動重算行程天數，既有景點會盡量保留；縮短天數時超出的景點會被刪除。</p>
+
+      <div class="form-group">
+        <label class="form-label">縮圖樣式</label>
+        <div id="editCoverPicker" class="cover-picker"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">自訂縮圖圖片網址（選填，填了會蓋過上面的樣式）</label>
+        <input type="text" id="editProjCoverImage" class="form-control" placeholder="https://...jpg">
+      </div>
+
+      <div class="form-group" id="editOwnerSection" style="display:none;">
+        <label class="form-label">🛡️ 重新指定團主（僅網站管理員）</label>
+        <select id="editProjOwner" class="form-control"></select>
+        <p style="font-size:11px; color:var(--sub-text); margin-top:4px;">以成員暱稱接手；該團主下次登入後，由專案內部功能綁定其 email 權限。</p>
+      </div>
+
+      <button class="btn-submit" onclick="submitEditProject()">儲存變更</button>
     </div>
   </div>
 
@@ -396,11 +432,11 @@
     </div>
   </div>
 
-  <script type="module" src="./firebase-config.js?v=20261108b"></script>
-  <script src="./app-state.js?v=20261108b"></script>
-  <script src="./dashboard.js?v=20261108b"></script>
-  <script src="./itinerary.js?v=20261108b"></script>
-  <script src="./expenses.js?v=20261108b"></script>
-  <script src="./ai-importer.js?v=20261108b"></script>
+  <script type="module" src="./firebase-config.js?v=20261108c"></script>
+  <script src="./app-state.js?v=20261108c"></script>
+  <script src="./dashboard.js?v=20261108c"></script>
+  <script src="./itinerary.js?v=20261108c"></script>
+  <script src="./expenses.js?v=20261108c"></script>
+  <script src="./ai-importer.js?v=20261108c"></script>
 </body>
 </html>
