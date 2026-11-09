@@ -12,6 +12,20 @@ window.closeMembersModal = function() {
   if (modal) modal.style.display = 'none';
 };
 
+// 複製專案專屬邀請連結（線下分享給想邀請的人）
+window.copyInviteLink = async function() {
+  if (!window.activeProjectId) return alert('請先進入專案！');
+  const url = `${window.location.origin}/?invite=${window.activeProjectId}`;
+  const msg = '✅ 邀請連結已複製！貼給想邀請的人，對方用 Google 登入開啟即可加入本專案成為團員。';
+  try {
+    await navigator.clipboard.writeText(url);
+    alert(msg);
+  } catch (e) {
+    // 某些瀏覽器不支援 clipboard API，退回手動複製
+    window.prompt('複製下方邀請連結貼給對方：', url);
+  }
+};
+
 function roleBadgeFor(proj, member) {
   // 團主：ownerEmail 或 ownerName 相符
   const isOwner = (proj.ownerEmail && member.email && proj.ownerEmail.toLowerCase() === member.email.toLowerCase())
@@ -32,6 +46,11 @@ window.renderMembersModal = function() {
   const myEmail = (window.currentUser && window.currentUser.email || '').toLowerCase();
 
   let html = '';
+
+  // ---- 邀請連結（團員以上可複製）----
+  if (window.canEditContent(proj)) {
+    html += `<button class="mem-add-btn" style="margin-bottom:14px; background:var(--brand-main); color:#fff; border:none;" onclick="copyInviteLink()">🔗 複製專案邀請連結</button>`;
+  }
 
   // ---- 團員名單 ----
   html += `<div class="mem-section-label">👥 團員（可登入協作）</div>`;
