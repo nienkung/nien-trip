@@ -1,3 +1,10 @@
+// 擷取邀請連結參數（?invite=專案ID），登入並載入專案後處理
+try {
+  window.pendingInvite = new URLSearchParams(window.location.search).get('invite') || null;
+} catch (e) {
+  window.pendingInvite = null;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   const checkAuthTimer = setInterval(() => {
     if (window.auth && window.onAuthStateChanged) {
@@ -6,6 +13,34 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }, 100);
 });
+
+// 透過邀請連結加入專案：把目前登入者加入團員（若尚未是），再進入該專案
+function processPendingInvite() {
+  const inviteId = window.pendingInvite;
+  if (!inviteId || !window.currentUser || !window.allProjects[inviteId]) return;
+  window.pendingInvite = null; // 只處理一次
+
+  const proj = window.allProjects[inviteId];
+  const email = (window.currentUser.email || '').toLowerCase();
+  const members = window.getMembers(proj);
+  const already = window.isProjectOwner(proj) || members.some(m => m.email && m.email.toLowerCase() === email);
+
+  const finish = () => {
+    try { history.replaceState(null, '', window.location.pathname); } catch (e) {}
+    window.enterProject(inviteId);
+  };
+
+  if (already) { finish(); return; }
+
+  const newMembers = members.concat([{ name: window.currentUser.name || '新成員', email: window.currentUser.email || '' }]);
+  if (window.dbUpdate && window.dbRef && window.db) {
+    window.dbUpdate(window.dbRef(window.db, `projects/${inviteId}`), { members: newMembers })
+      .then(() => { alert('🎉 已透過邀請連結加入專案，你現在是團員！'); finish(); })
+      .catch(() => finish());
+  } else {
+    finish();
+  }
+}
 
 window.initFirebaseAuthListener = function() {
   try {
@@ -67,6 +102,7 @@ window.initFirebaseProjectsSync = function() {
       window.activeProjectData = window.allProjects[window.activeProjectId];
     }
     window.renderDashboardProjects();
+    processPendingInvite();
   });
 };
 
@@ -199,24 +235,45 @@ window.selectCover = function(scope, idx) {
   renderCoverPicker(scope, idx);
 };
 
-// 幣別多選（建立 / 編輯共用）
+// 幣別多選（建立 / 編輯共用），支援搜尋過濾並保留勾選狀態
 const CURRENCY_PICKER_MAP = { new: 'newCurrencyBox', edit: 'editCurrencyBox' };
+const CURRENCY_SEARCH_MAP = { new: 'newCurrencySearch', edit: 'editCurrencySearch' };
+window._currencySel = { new: new Set(), edit: new Set() };
 
-function renderCurrencyPicker(scope, selectedCodes) {
+function renderCurrencyPicker(scope, selectedCodes, query) {
   const box = document.getElementById(CURRENCY_PICKER_MAP[scope]);
   if (!box) return;
-  const sel = Array.isArray(selectedCodes) ? selectedCodes : [];
-  box.innerHTML = (window.SUPPORTED_CURRENCIES || []).map(code => {
+  if (Array.isArray(selectedCodes)) window._currencySel[scope] = new Set(selectedCodes);
+  const sel = window._currencySel[scope];
+
+  const raw = (query || '').trim();
+  const q = raw.toUpperCase();
+  const list = (window.SUPPORTED_CURRENCIES || []).filter(code => {
+    if (!raw) return true;
+    const info = window.CURRENCY_INFO[code] || {};
+    return code.includes(q) || (info.name && info.name.includes(raw));
+  });
+
+  box.innerHTML = list.length ? list.map(code => {
     const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
-    const checked = sel.includes(code) ? 'checked' : '';
-    return `<label class="checkbox-label"><input type="checkbox" value="${code}" ${checked}> ${code} ${info.symbol || ''}</label>`;
-  }).join('');
+    const checked = sel.has(code) ? 'checked' : '';
+    return `<label class="checkbox-label"><input type="checkbox" value="${code}" ${checked} onchange="onCurrencyToggle('${scope}','${code}',this.checked)"> ${code} ${info.symbol || ''}</label>`;
+  }).join('') : '<div style="font-size:12px; color:var(--sub-text); padding:4px;">找不到符合的幣別</div>';
 }
 
+window.onCurrencyToggle = function(scope, code, checked) {
+  const sel = window._currencySel[scope];
+  if (!sel) return;
+  if (checked) sel.add(code); else sel.delete(code);
+};
+
+window.filterCurrencyPicker = function(scope) {
+  const input = document.getElementById(CURRENCY_SEARCH_MAP[scope]);
+  renderCurrencyPicker(scope, null, input ? input.value : '');
+};
+
 function readCurrencyPicker(scope) {
-  const box = document.getElementById(CURRENCY_PICKER_MAP[scope]);
-  if (!box) return [];
-  return Array.from(box.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  return Array.from(window._currencySel[scope] || []);
 }
 
 window.openNewProjectModal = function() {
@@ -226,6 +283,8 @@ window.openNewProjectModal = function() {
   const coverIdx = document.getElementById('newCoverIndex');
   if (coverIdx) coverIdx.value = -1;
   renderCoverPicker('new', -1);
+  const newCurSearch = document.getElementById('newCurrencySearch');
+  if (newCurSearch) newCurSearch.value = '';
   renderCurrencyPicker('new', ['JPY', 'TWD']);
 
   const modal = document.getElementById('createProjectModal');
@@ -356,6 +415,8 @@ window.openEditProjectModal = function(id) {
   const coverIndex = (typeof p.coverIndex === 'number') ? p.coverIndex : -1;
   document.getElementById('editCoverIndex').value = coverIndex;
   renderCoverPicker('edit', coverIndex);
+  const editCurSearch = document.getElementById('editCurrencySearch');
+  if (editCurSearch) editCurSearch.value = '';
   renderCurrencyPicker('edit', window.getProjectCurrencies(p));
 
   // 網站管理員才顯示「重新指定團主」
