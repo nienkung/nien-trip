@@ -32,6 +32,67 @@ function loadPrompt(fileName, vars) {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? vars[k] : ''));
 }
 
+// 依序嘗試的模型（快者優先，失敗自動備援）
+const MODELS = ['gemini-2.5-flash-lite', 'gemini-flash-latest'];
+
+async function callGemini(model, apiKey, systemPrompt, rawText) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [
+          { role: 'user', parts: [ { text: systemPrompt }, { text: `以下是使用者輸入的內容：\n${rawText}` } ] }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 4096,
+          responseMimeType: 'application/json',
+          // 關閉 thinking：避免思考吃掉輸出額度造成空白，同時大幅加速
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      })
+    });
+    clearTimeout(timeoutId);
+
+    const resData = await response.json();
+
+    if (resData.error) {
+      return { ok: false, error: `(${model}) ${resData.error.message || resData.error.code}` };
+    }
+
+    const cand = resData.candidates && resData.candidates[0];
+    if (!cand || !cand.content || !cand.content.parts) {
+      return { ok: false, error: `(${model}) 無有效內容，finishReason=${cand && cand.finishReason}` };
+    }
+
+    // 串接所有 text 段落（思考模型答案可能不在第 0 段）
+    let text = cand.content.parts.map(p => (p && p.text) || '').join('').trim();
+    text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    if (!text) return { ok: false, error: `(${model}) 空白輸出，finishReason=${cand.finishReason}` };
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) { try { data = JSON.parse(m[0]); } catch (e2) {} }
+      if (!data) return { ok: false, error: `(${model}) JSON 解析失敗` };
+    }
+    return { ok: true, data };
+
+  } catch (e) {
+    clearTimeout(timeoutId);
+    return { ok: false, error: `(${model}) ${e.name === 'AbortError' ? '逾時' : e.message}`, timeout: e.name === 'AbortError' };
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -58,56 +119,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '無效的解析類型 (type)' });
     }
 
-    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: systemPrompt },
-              { text: `以下是使用者輸入的內容：\n${rawText}` }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 2048,
-          responseMimeType: 'application/json'
-        }
-      })
-    });
-
-    clearTimeout(timeoutId);
-
-    const resData = await response.json();
-
-    if (resData.error) {
-      return res.status(400).json({ error: `Gemini API 回應錯誤 (${resData.error.code}): ${resData.error.message}` });
+    let lastError = '解析失敗';
+    for (const model of MODELS) {
+      const out = await callGemini(model, apiKey, systemPrompt, rawText);
+      if (out.ok) {
+        return res.status(200).json({ success: true, data: out.data, model });
+      }
+      lastError = out.error;
+      if (out.timeout) break; // 逾時就不再試下一個，避免整體超過函式上限
     }
 
-    if (!resData.candidates || !resData.candidates[0] || !resData.candidates[0].content) {
-      return res.status(500).json({ error: 'Gemini 未能產生有效的分析結果' });
-    }
-
-    let replyText = resData.candidates[0].content.parts[0].text.trim();
-    replyText = replyText.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-    const parsedData = JSON.parse(replyText);
-    return res.status(200).json({ success: true, data: parsedData });
+    return res.status(502).json({ error: 'AI 解析失敗：' + lastError });
 
   } catch (error) {
     console.error('Vercel Serverless API Error:', error);
-    if (error.name === 'AbortError') {
-      return res.status(504).json({ error: 'Gemini 回應超時（25 秒），請再試一次！' });
-    }
     return res.status(500).json({ error: '伺服器內部發生錯誤', details: error.message });
   }
 }
