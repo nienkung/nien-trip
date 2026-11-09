@@ -174,6 +174,41 @@
     .mem-del-btn { border: none; background: #FFF5F5; color: var(--danger); border: 1px solid #FEB2B2; border-radius: 9px; width: 38px; height: 38px; font-size: 15px; cursor: pointer; flex-shrink: 0; }
     .mem-add-btn { width: 100%; background: var(--brand-light); color: var(--brand-main); border: 1.5px dashed var(--brand-border); padding: 9px; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; margin-top: 4px; }
     .mem-empty { font-size: 13px; color: var(--sub-text); font-weight: 600; text-align: center; padding: 10px; }
+
+    /* ===== 跨瀏覽器 / RWD 強化 ===== */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    /* 新版瀏覽器用動態視窗高度，避免 iOS Safari 100vh 跳動 */
+    body { min-height: 100dvh; }
+    .page-view { min-height: 100dvh; }
+    .login-container { min-height: 100dvh; padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+    /* 欄位字級 ≥16px，避免 iOS 聚焦時整頁被放大 */
+    .form-control, textarea.form-control, select.form-control, .dash-search { font-size: 16px; }
+    /* 瀏海 / 圓角螢幕安全區 */
+    .navbar {
+      padding-top: calc(14px + env(safe-area-inset-top));
+      padding-left: calc(20px + env(safe-area-inset-left));
+      padding-right: calc(20px + env(safe-area-inset-right));
+    }
+    .main-container {
+      padding-bottom: calc(80px + env(safe-area-inset-bottom));
+      padding-left: calc(16px + env(safe-area-inset-left));
+      padding-right: calc(16px + env(safe-area-inset-right));
+    }
+    .modal-mask { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+    .modal-box { max-height: 88dvh; }
+    /* 超小螢幕（iPhone SE 等）微調 */
+    @media (max-width: 380px) {
+      .main-container { padding-left: 12px; padding-right: 12px; }
+      .tab-btn { font-size: 13px; padding: 9px 2px; }
+      .navbar-brand { font-size: 16px; }
+      .card-title, .project-name { font-size: 16px; }
+      .import-btn { font-size: 13px; padding: 11px 5px; }
+      .section-title { font-size: 16px; }
+    }
+    /* 平板 / 桌機置中，避免過寬 */
+    @media (min-width: 820px) {
+      .main-container { max-width: 680px; }
+    }
   </style>
 </head>
 <body>
@@ -524,12 +559,12 @@
     });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261108j"></script>
-  <script src="./app-state.js?v=20261108j"></script>
-  <script src="./dashboard.js?v=20261108j"></script>
-  <script src="./members.js?v=20261108j"></script>
-  <script src="./itinerary.js?v=20261108j"></script>
-  <script src="./expenses.js?v=20261108j"></script>
-  <script src="./ai-importer.js?v=20261108j"></script>
+  <script type="module" src="./firebase-config.js?v=20261109a"></script>
+  <script src="./app-state.js?v=20261109a"></script>
+  <script src="./dashboard.js?v=20261109a"></script>
+  <script src="./members.js?v=20261109a"></script>
+  <script src="./itinerary.js?v=20261109a"></script>
+  <script src="./expenses.js?v=20261109a"></script>
+  <script src="./ai-importer.js?v=20261109a"></script>
 </body>
 </html>
