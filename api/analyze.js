@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-// 內建備援（萬一部署時 md 檔未被打包，仍可運作）
 const FALLBACK = {
   'spot.md': `你是一個專業旅遊行程隨手筆記解析器。請閱讀使用者的輸入並解析出【景點行程 (spots)】。
 如果文字中未提及第幾天，請預設使用 "{{currentDay}}"。
@@ -32,13 +31,13 @@ function loadPrompt(fileName, vars) {
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? vars[k] : ''));
 }
 
-// 依序嘗試的模型（快者優先，失敗自動備援）
+// 先試超快的 lite，失敗再換 flash-latest。不加 thinkingConfig / responseMimeType 以確保相容
 const MODELS = ['gemini-2.5-flash-lite', 'gemini-flash-latest'];
 
 async function callGemini(model, apiKey, systemPrompt, rawText) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 13000);
 
   try {
     const response = await fetch(url, {
@@ -48,14 +47,7 @@ async function callGemini(model, apiKey, systemPrompt, rawText) {
       body: JSON.stringify({
         contents: [
           { role: 'user', parts: [ { text: systemPrompt }, { text: `以下是使用者輸入的內容：\n${rawText}` } ] }
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 4096,
-          responseMimeType: 'application/json',
-          // 關閉 thinking：避免思考吃掉輸出額度造成空白，同時大幅加速
-          thinkingConfig: { thinkingBudget: 0 }
-        }
+        ]
       })
     });
     clearTimeout(timeoutId);
@@ -68,14 +60,14 @@ async function callGemini(model, apiKey, systemPrompt, rawText) {
 
     const cand = resData.candidates && resData.candidates[0];
     if (!cand || !cand.content || !cand.content.parts) {
-      return { ok: false, error: `(${model}) 無有效內容，finishReason=${cand && cand.finishReason}` };
+      return { ok: false, error: `(${model}) 無有效內容 finishReason=${cand && cand.finishReason}` };
     }
 
-    // 串接所有 text 段落（思考模型答案可能不在第 0 段）
+    // 串接所有 text 段落（思考型模型答案可能不在第 0 段）
     let text = cand.content.parts.map(p => (p && p.text) || '').join('').trim();
     text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-    if (!text) return { ok: false, error: `(${model}) 空白輸出，finishReason=${cand.finishReason}` };
+    if (!text) return { ok: false, error: `(${model}) 空白輸出 finishReason=${cand.finishReason}` };
 
     let data;
     try {
@@ -101,14 +93,10 @@ export default async function handler(req, res) {
   try {
     const { rawText, type, currentDay = 'D1', defaultCurrency = 'JPY' } = req.body;
 
-    if (!rawText) {
-      return res.status(400).json({ error: '請提供欲解析的內容！' });
-    }
+    if (!rawText) return res.status(400).json({ error: '請提供欲解析的內容！' });
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: '伺服器端尚未設定 GEMINI_API_KEY 環境變數！' });
-    }
+    if (!apiKey) return res.status(500).json({ error: '伺服器端尚未設定 GEMINI_API_KEY 環境變數！' });
 
     let systemPrompt = '';
     if (type === 'spot') {
@@ -122,11 +110,9 @@ export default async function handler(req, res) {
     let lastError = '解析失敗';
     for (const model of MODELS) {
       const out = await callGemini(model, apiKey, systemPrompt, rawText);
-      if (out.ok) {
-        return res.status(200).json({ success: true, data: out.data, model });
-      }
+      if (out.ok) return res.status(200).json({ success: true, data: out.data, model });
       lastError = out.error;
-      if (out.timeout) break; // 逾時就不再試下一個，避免整體超過函式上限
+      if (out.timeout) break;
     }
 
     return res.status(502).json({ error: 'AI 解析失敗：' + lastError });
