@@ -17,7 +17,7 @@ import {
 const firebaseConfig = {
   apiKey: "AIzaSyAa3VDRzsGlWY5NPhWTMpnhLZev5ImJCJA",
   authDomain: "nien-trip.firebaseapp.com",
-  databaseURL: "https://nien-trip-default-rtdb.firebaseio.com",
+  databaseURL: "https://nien-trip-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "nien-trip",
   storageBucket: "nien-trip.firebasestorage.app",
   messagingSenderId: "659304143635",
