@@ -18,36 +18,51 @@ window.EXCHANGE_RATES = {
   LKR: 0.11, NPR: 0.24, KHR: 0.008, MMK: 0.015, LAK: 0.0015
 };
 
-// 支援的幣別（專案幣別設定可從這裡挑）
-window.SUPPORTED_CURRENCIES = [
-  'TWD', 'JPY', 'USD', 'EUR', 'KRW', 'THB', 'CNY', 'HKD', 'SGD', 'MYR', 'VND',
-  'IDR', 'PHP', 'MOP', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'INR', 'AED', 'TRY',
-  'SEK', 'NOK', 'DKK', 'RUB', 'BRL', 'MXN', 'ZAR', 'PLN', 'CZK', 'HUF', 'EGP',
-  'SAR', 'QAR', 'LKR', 'NPR', 'KHR', 'MMK', 'LAK'
-];
-
+// 支援的幣別（涵蓋旅遊常用與主要貨幣，可搜尋加入）
 window.CURRENCY_INFO = {
   TWD: { name: '新台幣', symbol: 'NT$' }, JPY: { name: '日圓', symbol: '¥' },
-  USD: { name: '美金', symbol: '$' },     EUR: { name: '歐元', symbol: '€' },
-  KRW: { name: '韓元', symbol: '₩' },     THB: { name: '泰銖', symbol: '฿' },
-  CNY: { name: '人民幣', symbol: '¥' },   HKD: { name: '港幣', symbol: 'HK$' },
+  USD: { name: '美金', symbol: '$' }, EUR: { name: '歐元', symbol: '€' },
+  KRW: { name: '韓元', symbol: '₩' }, CNY: { name: '人民幣', symbol: '¥' },
+  HKD: { name: '港幣', symbol: 'HK$' }, MOP: { name: '澳門幣', symbol: 'MOP$' },
   SGD: { name: '新加坡幣', symbol: 'S$' }, MYR: { name: '馬來西亞令吉', symbol: 'RM' },
-  VND: { name: '越南盾', symbol: '₫' },   IDR: { name: '印尼盾', symbol: 'Rp' },
-  PHP: { name: '菲律賓披索', symbol: '₱' }, MOP: { name: '澳門幣', symbol: 'MOP$' },
-  GBP: { name: '英鎊', symbol: '£' },     AUD: { name: '澳幣', symbol: 'A$' },
-  NZD: { name: '紐西蘭幣', symbol: 'NZ$' }, CAD: { name: '加拿大幣', symbol: 'C$' },
-  CHF: { name: '瑞士法郎', symbol: 'CHF' }, INR: { name: '印度盧比', symbol: '₹' },
-  AED: { name: '阿聯迪拉姆', symbol: 'AED' }, TRY: { name: '土耳其里拉', symbol: '₺' },
-  SEK: { name: '瑞典克朗', symbol: 'kr' }, NOK: { name: '挪威克朗', symbol: 'kr' },
-  DKK: { name: '丹麥克朗', symbol: 'kr' }, RUB: { name: '俄羅斯盧布', symbol: '₽' },
-  BRL: { name: '巴西雷亞爾', symbol: 'R$' }, MXN: { name: '墨西哥披索', symbol: 'Mex$' },
-  ZAR: { name: '南非蘭特', symbol: 'R' }, PLN: { name: '波蘭茲羅提', symbol: 'zł' },
-  CZK: { name: '捷克克朗', symbol: 'Kč' }, HUF: { name: '匈牙利福林', symbol: 'Ft' },
-  EGP: { name: '埃及鎊', symbol: 'E£' },  SAR: { name: '沙烏地里亞爾', symbol: 'SAR' },
-  QAR: { name: '卡達里亞爾', symbol: 'QAR' }, LKR: { name: '斯里蘭卡盧比', symbol: 'Rs' },
+  THB: { name: '泰銖', symbol: '฿' }, VND: { name: '越南盾', symbol: '₫' },
+  IDR: { name: '印尼盾', symbol: 'Rp' }, PHP: { name: '菲律賓披索', symbol: '₱' },
+  INR: { name: '印度盧比', symbol: '₹' }, PKR: { name: '巴基斯坦盧比', symbol: '₨' },
+  BDT: { name: '孟加拉塔卡', symbol: '৳' }, LKR: { name: '斯里蘭卡盧比', symbol: 'Rs' },
   NPR: { name: '尼泊爾盧比', symbol: 'Rs' }, KHR: { name: '柬埔寨瑞爾', symbol: '៛' },
-  MMK: { name: '緬甸元', symbol: 'K' },   LAK: { name: '寮國基普', symbol: '₭' }
+  MMK: { name: '緬甸元', symbol: 'K' }, LAK: { name: '寮國基普', symbol: '₭' },
+  BND: { name: '汶萊元', symbol: 'B$' }, MNT: { name: '蒙古圖格里克', symbol: '₮' },
+  KZT: { name: '哈薩克坦吉', symbol: '₸' }, GBP: { name: '英鎊', symbol: '£' },
+  CHF: { name: '瑞士法郎', symbol: 'CHF' }, SEK: { name: '瑞典克朗', symbol: 'kr' },
+  NOK: { name: '挪威克朗', symbol: 'kr' }, DKK: { name: '丹麥克朗', symbol: 'kr' },
+  PLN: { name: '波蘭茲羅提', symbol: 'zł' }, CZK: { name: '捷克克朗', symbol: 'Kč' },
+  HUF: { name: '匈牙利福林', symbol: 'Ft' }, RON: { name: '羅馬尼亞列伊', symbol: 'lei' },
+  BGN: { name: '保加利亞列弗', symbol: 'лв' }, HRK: { name: '克羅埃西亞庫納', symbol: 'kn' },
+  RSD: { name: '塞爾維亞第納爾', symbol: 'дин' }, ISK: { name: '冰島克朗', symbol: 'kr' },
+  UAH: { name: '烏克蘭格里夫納', symbol: '₴' }, RUB: { name: '俄羅斯盧布', symbol: '₽' },
+  TRY: { name: '土耳其里拉', symbol: '₺' }, AED: { name: '阿聯迪拉姆', symbol: 'AED' },
+  SAR: { name: '沙烏地里亞爾', symbol: 'SAR' }, QAR: { name: '卡達里亞爾', symbol: 'QAR' },
+  KWD: { name: '科威特第納爾', symbol: 'KD' }, BHD: { name: '巴林第納爾', symbol: 'BD' },
+  OMR: { name: '阿曼里亞爾', symbol: 'OMR' }, ILS: { name: '以色列新謝克爾', symbol: '₪' },
+  JOD: { name: '約旦第納爾', symbol: 'JD' }, LBP: { name: '黎巴嫩鎊', symbol: 'ل.ل' },
+  AUD: { name: '澳幣', symbol: 'A$' }, NZD: { name: '紐西蘭幣', symbol: 'NZ$' },
+  FJD: { name: '斐濟元', symbol: 'FJ$' }, PGK: { name: '巴布亞紐幾內亞基那', symbol: 'K' },
+  CAD: { name: '加拿大幣', symbol: 'C$' }, MXN: { name: '墨西哥披索', symbol: 'Mex$' },
+  BRL: { name: '巴西雷亞爾', symbol: 'R$' }, ARS: { name: '阿根廷披索', symbol: '$' },
+  CLP: { name: '智利披索', symbol: '$' }, COP: { name: '哥倫比亞披索', symbol: '$' },
+  PEN: { name: '秘魯索爾', symbol: 'S/' }, UYU: { name: '烏拉圭披索', symbol: '$U' },
+  BOB: { name: '玻利維亞諾', symbol: 'Bs' }, CRC: { name: '哥斯大黎加科朗', symbol: '₡' },
+  GTQ: { name: '瓜地馬拉格查爾', symbol: 'Q' }, DOP: { name: '多明尼加披索', symbol: 'RD$' },
+  ZAR: { name: '南非蘭特', symbol: 'R' }, EGP: { name: '埃及鎊', symbol: 'E£' },
+  MAD: { name: '摩洛哥迪拉姆', symbol: 'DH' }, NGN: { name: '奈及利亞奈拉', symbol: '₦' },
+  KES: { name: '肯亞先令', symbol: 'KSh' }, TZS: { name: '坦尚尼亞先令', symbol: 'TSh' },
+  UGX: { name: '烏干達先令', symbol: 'USh' }, GHS: { name: '迦納塞地', symbol: '₵' },
+  ETB: { name: '衣索比亞比爾', symbol: 'Br' }, TND: { name: '突尼西亞第納爾', symbol: 'DT' },
+  MUR: { name: '模里西斯盧比', symbol: '₨' }, XOF: { name: '西非法郎', symbol: 'CFA' },
+  XAF: { name: '中非法郎', symbol: 'FCFA' }, MVR: { name: '馬爾地夫拉菲亞', symbol: 'Rf' }
 };
+
+window.SUPPORTED_CURRENCIES = Object.keys(window.CURRENCY_INFO);
 
 // 專案可使用的幣別清單（記帳下拉會讀這個；舊專案未設定時給預設）
 window.getProjectCurrencies = function(proj) {
@@ -189,7 +204,7 @@ window.getProjectDayCount = function(p) {
   return 0;
 };
 
-// 縮圖樣式庫（漸層底 + emoji）
+// 縮圖樣式庫（漸層底 + emoji），共 15 種 + 🎲 自動 = 兩排
 window.TRIP_COVERS = [
   { grad: 'linear-gradient(135deg, #00A896, #0F3D3E)', emoji: '🏯' },
   { grad: 'linear-gradient(135deg, #667EEA, #764BA2)', emoji: '🗼' },
@@ -198,7 +213,14 @@ window.TRIP_COVERS = [
   { grad: 'linear-gradient(135deg, #FC8181, #C53030)', emoji: '🗻' },
   { grad: 'linear-gradient(135deg, #63B3ED, #3182CE)', emoji: '✈️' },
   { grad: 'linear-gradient(135deg, #B794F4, #805AD5)', emoji: '🌸' },
-  { grad: 'linear-gradient(135deg, #68D391, #2F855A)', emoji: '🚅' }
+  { grad: 'linear-gradient(135deg, #68D391, #2F855A)', emoji: '🚅' },
+  { grad: 'linear-gradient(135deg, #38B2AC, #234E52)', emoji: '🏝️' },
+  { grad: 'linear-gradient(135deg, #4299E1, #2A4365)', emoji: '🗽' },
+  { grad: 'linear-gradient(135deg, #F687B3, #B83280)', emoji: '🎡' },
+  { grad: 'linear-gradient(135deg, #A0AEC0, #2D3748)', emoji: '🏔️' },
+  { grad: 'linear-gradient(135deg, #4FD1C5, #2B6CB0)', emoji: '🚢' },
+  { grad: 'linear-gradient(135deg, #ED8936, #9C4221)', emoji: '🏰' },
+  { grad: 'linear-gradient(135deg, #9F7AEA, #44337A)', emoji: '🗿' }
 ];
 
 window.getProjectCover = function(p, id) {
