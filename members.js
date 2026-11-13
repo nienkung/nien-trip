@@ -16,7 +16,7 @@ window.closeMembersModal = function() {
 window.copyInviteLink = async function() {
   if (!window.activeProjectId) return alert('請先進入專案！');
   const url = `${window.location.origin}/?invite=${window.activeProjectId}`;
-  const msg = '✅ 邀請連結已複製！貼給想邀請的人，對方用 Google 登入開啟即可加入本專案成為團員。';
+  const msg = '✅ 邀請連結已複製！貼給想邀請的人，對方用帳號登入（尚未有帳號請先註冊）即可加入本專案成為團員。';
   try {
     await navigator.clipboard.writeText(url);
     alert(msg);
