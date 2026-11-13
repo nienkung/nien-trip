@@ -157,6 +157,14 @@
     .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
     .checkbox-label { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--brand-dark); cursor: pointer; background: var(--brand-bg); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--brand-border); }
     .currency-box { max-height: 148px; overflow-y: auto; padding: 8px; border: 1px solid var(--brand-border); border-radius: 10px; background: #FAFDFC; }
+    .currency-dropdown { display: none; margin-top: 4px; max-height: 190px; overflow-y: auto; border: 1px solid var(--brand-border); border-radius: 10px; background: #FFF; box-shadow: var(--shadow-sm); }
+    .currency-dropdown.show { display: block; }
+    .currency-opt { padding: 9px 12px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--brand-light); color: var(--brand-dark); }
+    .currency-opt:last-child { border-bottom: none; }
+    .currency-opt:hover { background: var(--brand-bg); }
+    .currency-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .currency-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--brand-bg); border: 1px solid var(--brand-border); color: var(--brand-dark); font-weight: 800; font-size: 13px; padding: 5px 6px 5px 11px; border-radius: 20px; }
+    .currency-chip .chip-x { cursor: pointer; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; background: #FFF; border-radius: 50%; font-size: 11px; color: var(--danger); border: 1px solid var(--brand-border); }
 
     /* ===== 團員管理彈窗 ===== */
     .mem-section-label { font-size: 13px; font-weight: 800; color: var(--brand-dark); margin-bottom: 8px; }
@@ -376,14 +384,10 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">一起分帳的人 (暱稱，逗號隔開)</label>
-        <input type="text" id="newProjMembers" class="form-control" placeholder="蝦, 爸爸, 媽媽" value="蝦">
-        <p style="font-size:11px; color:var(--sub-text); margin-top:4px;">你會自動成為團主；這裡填的人先列為「外部分帳人」，之後可在專案內的「👥 團員」把他們邀請成可登入的團員。</p>
-      </div>
-      <div class="form-group">
         <label class="form-label">本專案使用的幣別</label>
-        <input type="text" id="newCurrencySearch" class="form-control" placeholder="🔍 搜尋幣別（代碼或名稱，如 JPY／日圓）" oninput="filterCurrencyPicker('new')" style="margin-bottom:6px;">
-        <div id="newCurrencyBox" class="checkbox-group currency-box"></div>
+        <input type="text" id="newCurrencySearch" class="form-control" placeholder="🔍 搜尋幣別（代碼或名稱，如 TWD／台幣）" oninput="onCurrencySearchInput('new')" autocomplete="off">
+        <div id="newCurrencyDropdown" class="currency-dropdown"></div>
+        <div id="newCurrencyChips" class="currency-chips"></div>
       </div>
       <input type="hidden" id="newCoverIndex" value="-1">
       <div class="form-group">
@@ -426,8 +430,9 @@
 
       <div class="form-group">
         <label class="form-label">本專案使用的幣別</label>
-        <input type="text" id="editCurrencySearch" class="form-control" placeholder="🔍 搜尋幣別（代碼或名稱，如 JPY／日圓）" oninput="filterCurrencyPicker('edit')" style="margin-bottom:6px;">
-        <div id="editCurrencyBox" class="checkbox-group currency-box"></div>
+        <input type="text" id="editCurrencySearch" class="form-control" placeholder="🔍 搜尋幣別（代碼或名稱，如 TWD／台幣）" oninput="onCurrencySearchInput('edit')" autocomplete="off">
+        <div id="editCurrencyDropdown" class="currency-dropdown"></div>
+        <div id="editCurrencyChips" class="currency-chips"></div>
       </div>
       <div class="form-group">
         <label class="form-label">縮圖樣式</label>
@@ -561,12 +566,12 @@
     });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261109b"></script>
-  <script src="./app-state.js?v=20261109b"></script>
-  <script src="./dashboard.js?v=20261109b"></script>
-  <script src="./members.js?v=20261109b"></script>
-  <script src="./itinerary.js?v=20261109b"></script>
-  <script src="./expenses.js?v=20261109b"></script>
-  <script src="./ai-importer.js?v=20261109b"></script>
+  <script type="module" src="./firebase-config.js?v=20261109c"></script>
+  <script src="./app-state.js?v=20261109c"></script>
+  <script src="./dashboard.js?v=20261109c"></script>
+  <script src="./members.js?v=20261109c"></script>
+  <script src="./itinerary.js?v=20261109c"></script>
+  <script src="./expenses.js?v=20261109c"></script>
+  <script src="./ai-importer.js?v=20261109c"></script>
 </body>
 </html>
