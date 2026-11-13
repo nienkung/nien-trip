@@ -235,45 +235,70 @@ window.selectCover = function(scope, idx) {
   renderCoverPicker(scope, idx);
 };
 
-// 幣別多選（建立 / 編輯共用），支援搜尋過濾並保留勾選狀態
-const CURRENCY_PICKER_MAP = { new: 'newCurrencyBox', edit: 'editCurrencyBox' };
-const CURRENCY_SEARCH_MAP = { new: 'newCurrencySearch', edit: 'editCurrencySearch' };
-window._currencySel = { new: new Set(), edit: new Set() };
+// 幣別選擇器（搜尋 + 標籤 chips），建立 / 編輯共用
+const CURRENCY_IDS = {
+  new:  { search: 'newCurrencySearch',  dropdown: 'newCurrencyDropdown',  chips: 'newCurrencyChips' },
+  edit: { search: 'editCurrencySearch', dropdown: 'editCurrencyDropdown', chips: 'editCurrencyChips' }
+};
+window._currencySel = { new: [], edit: [] };
 
-function renderCurrencyPicker(scope, selectedCodes, query) {
-  const box = document.getElementById(CURRENCY_PICKER_MAP[scope]);
-  if (!box) return;
-  if (Array.isArray(selectedCodes)) window._currencySel[scope] = new Set(selectedCodes);
-  const sel = window._currencySel[scope];
-
-  const raw = (query || '').trim();
-  const q = raw.toUpperCase();
-  const list = (window.SUPPORTED_CURRENCIES || []).filter(code => {
-    if (!raw) return true;
-    const info = window.CURRENCY_INFO[code] || {};
-    return code.includes(q) || (info.name && info.name.includes(raw));
-  });
-
-  box.innerHTML = list.length ? list.map(code => {
-    const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
-    const checked = sel.has(code) ? 'checked' : '';
-    return `<label class="checkbox-label"><input type="checkbox" value="${code}" ${checked} onchange="onCurrencyToggle('${scope}','${code}',this.checked)"> ${code} ${info.symbol || ''}</label>`;
-  }).join('') : '<div style="font-size:12px; color:var(--sub-text); padding:4px;">找不到符合的幣別</div>';
+function initCurrencyPicker(scope, selectedCodes) {
+  window._currencySel[scope] = Array.isArray(selectedCodes) ? selectedCodes.slice() : [];
+  const ids = CURRENCY_IDS[scope];
+  const s = document.getElementById(ids.search); if (s) s.value = '';
+  const d = document.getElementById(ids.dropdown); if (d) { d.innerHTML = ''; d.classList.remove('show'); }
+  renderCurrencyChips(scope);
 }
 
-window.onCurrencyToggle = function(scope, code, checked) {
-  const sel = window._currencySel[scope];
-  if (!sel) return;
-  if (checked) sel.add(code); else sel.delete(code);
+function renderCurrencyChips(scope) {
+  const box = document.getElementById(CURRENCY_IDS[scope].chips);
+  if (!box) return;
+  const sel = window._currencySel[scope] || [];
+  box.innerHTML = sel.length ? sel.map(code => {
+    const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
+    return `<span class="currency-chip">${code} ${info.symbol || ''}<span class="chip-x" onclick="removeCurrency('${scope}','${code}')">✕</span></span>`;
+  }).join('') : '<span style="font-size:12px; color:var(--sub-text);">尚未選擇幣別，於上方搜尋後點選加入</span>';
+}
+
+window.onCurrencySearchInput = function(scope) {
+  const ids = CURRENCY_IDS[scope];
+  const input = document.getElementById(ids.search);
+  const dd = document.getElementById(ids.dropdown);
+  if (!input || !dd) return;
+  const raw = input.value.trim();
+  const q = raw.toUpperCase();
+  if (!raw) { dd.innerHTML = ''; dd.classList.remove('show'); return; }
+
+  const sel = window._currencySel[scope] || [];
+  const matches = (window.SUPPORTED_CURRENCIES || []).filter(code => {
+    if (sel.includes(code)) return false;
+    const info = window.CURRENCY_INFO[code] || {};
+    return code.includes(q) || (info.name && info.name.includes(raw));
+  }).slice(0, 40);
+
+  dd.innerHTML = matches.length ? matches.map(code => {
+    const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
+    return `<div class="currency-opt" onclick="addCurrency('${scope}','${code}')"><strong>${code}</strong> ${info.symbol || ''}　${info.name || ''}</div>`;
+  }).join('') : '<div class="currency-opt" style="color:var(--sub-text); cursor:default;">找不到符合的幣別</div>';
+  dd.classList.add('show');
 };
 
-window.filterCurrencyPicker = function(scope) {
-  const input = document.getElementById(CURRENCY_SEARCH_MAP[scope]);
-  renderCurrencyPicker(scope, null, input ? input.value : '');
+window.addCurrency = function(scope, code) {
+  const sel = window._currencySel[scope] || (window._currencySel[scope] = []);
+  if (!sel.includes(code)) sel.push(code);
+  const ids = CURRENCY_IDS[scope];
+  const input = document.getElementById(ids.search); if (input) { input.value = ''; input.focus(); }
+  const dd = document.getElementById(ids.dropdown); if (dd) { dd.innerHTML = ''; dd.classList.remove('show'); }
+  renderCurrencyChips(scope);
+};
+
+window.removeCurrency = function(scope, code) {
+  window._currencySel[scope] = (window._currencySel[scope] || []).filter(c => c !== code);
+  renderCurrencyChips(scope);
 };
 
 function readCurrencyPicker(scope) {
-  return Array.from(window._currencySel[scope] || []);
+  return (window._currencySel[scope] || []).slice();
 }
 
 window.openNewProjectModal = function() {
@@ -283,9 +308,7 @@ window.openNewProjectModal = function() {
   const coverIdx = document.getElementById('newCoverIndex');
   if (coverIdx) coverIdx.value = -1;
   renderCoverPicker('new', -1);
-  const newCurSearch = document.getElementById('newCurrencySearch');
-  if (newCurSearch) newCurSearch.value = '';
-  renderCurrencyPicker('new', ['JPY', 'TWD']);
+  initCurrencyPicker('new', ['TWD', 'JPY']);
 
   const modal = document.getElementById('createProjectModal');
   if (modal) modal.style.display = 'flex';
@@ -339,7 +362,6 @@ window.submitCreateProject = async function() {
   const title = document.getElementById('newProjTitle').value.trim();
   const startDateStr = document.getElementById('newProjStartDate').value;
   const endDateStr = document.getElementById('newProjEndDate').value;
-  const membersRaw = document.getElementById('newProjMembers').value.trim();
 
   if (!title || !startDateStr || !endDateStr) {
     return alert('請填寫完整專案名稱與起迄日期！');
@@ -352,12 +374,10 @@ window.submitCreateProject = async function() {
     return alert('結束日期不能早於出發日期！');
   }
 
-  // 建立者 = 團主（團員，綁 email）；其餘逗號名字先放「外部分帳人」，日後團主可在專案內邀請升級
+  // 建立者 = 團主（團員，綁 email）；其他團員與外部分帳人之後在專案內的「團員」介面新增
   const ownerName = window.currentUser ? window.currentUser.name : '錢粘';
   const ownerEmail = window.currentUser ? (window.currentUser.email || '') : '';
-  const rawNames = membersRaw ? membersRaw.split(',').map(m => m.trim()).filter(Boolean) : [];
-  const externalPeople = rawNames.filter(n => n !== ownerName);
-
+  const externalPeople = [];
   const members = [{ name: ownerName, email: ownerEmail }];
 
   const { itinerary } = buildItineraryForDates(startDateStr, endDateStr, null);
@@ -415,9 +435,7 @@ window.openEditProjectModal = function(id) {
   const coverIndex = (typeof p.coverIndex === 'number') ? p.coverIndex : -1;
   document.getElementById('editCoverIndex').value = coverIndex;
   renderCoverPicker('edit', coverIndex);
-  const editCurSearch = document.getElementById('editCurrencySearch');
-  if (editCurSearch) editCurSearch.value = '';
-  renderCurrencyPicker('edit', window.getProjectCurrencies(p));
+  initCurrencyPicker('edit', window.getProjectCurrencies(p));
 
   // 網站管理員才顯示「重新指定團主」
   const ownerSection = document.getElementById('editOwnerSection');
