@@ -1,7 +1,6 @@
-// Firebase 設定（新專案）
-// 到 Firebase Console → 專案設定 → 一般 → 你的應用程式 → 「SDK 設定和組態」，
-// 把 firebaseConfig 整段複製，取代下方的 PLACEHOLDER 值。
-// 另外請到 Authentication → Sign-in method，啟用「電子郵件／密碼」。
+// Firebase 設定（nien-trip 專案）
+// 注意：databaseURL 請到 Firebase Console → Realtime Database 頁面確認，
+// 網址和下面不一樣的話，改成頁面上顯示的那一個。
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import {
@@ -16,13 +15,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "PLACEHOLDER_API_KEY",
-  authDomain: "PLACEHOLDER.firebaseapp.com",
-  databaseURL: "https://PLACEHOLDER-default-rtdb.firebaseio.com",
-  projectId: "PLACEHOLDER",
-  storageBucket: "PLACEHOLDER.appspot.com",
-  messagingSenderId: "PLACEHOLDER",
-  appId: "PLACEHOLDER"
+  apiKey: "AIzaSyAa3VDRzsGlWY5NPhWTMpnhLZev5ImJCJA",
+  authDomain: "nien-trip.firebaseapp.com",
+  databaseURL: "https://nien-trip-default-rtdb.firebaseio.com",
+  projectId: "nien-trip",
+  storageBucket: "nien-trip.firebasestorage.app",
+  messagingSenderId: "659304143635",
+  appId: "1:659304143635:web:9175c6836ba4f985c9d8e6",
+  measurementId: "G-L7BC11Q0NG"
 };
 
 const app = initializeApp(firebaseConfig);
