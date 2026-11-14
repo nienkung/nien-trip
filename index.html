@@ -133,8 +133,15 @@
     .spot-time { display: inline-block; background: #E6FFFA; color: var(--brand-main); font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--brand-border); }
     .spot-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); padding-right: 70px; }
     .spot-desc { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.5; white-space: pre-line; }
-    .spot-thumb { width: 100%; height: 150px; object-fit: cover; border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--brand-border); }
-    .spot-thumb-preview { width: 100%; max-height: 160px; object-fit: cover; border-radius: 10px; margin-top: 8px; border: 1px solid var(--brand-border); }
+    .spot-thumb { width: 100%; height: 130px; object-fit: cover; border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--brand-border); display: block; }
+    .spot-thumb-preview { width: 100%; height: 130px; object-fit: cover; border-radius: 10px; margin-top: 8px; border: 1px solid var(--brand-border); display: block; }
+    .thumb-adjust { margin-top: 10px; padding: 10px 12px; background: var(--brand-light); border-radius: 10px; border: 1px solid var(--brand-border); }
+    .thumb-adjust-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--brand-dark); margin-top: 4px; }
+    .thumb-adjust-row input { flex: 1; accent-color: var(--brand-main); }
+    .prep-note { background: #FFFFFF; border: 1px solid var(--brand-border); border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; }
+    .prep-note-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); padding-right: 70px; }
+    .prep-note-body { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .prep-note-meta { font-size: 11px; color: var(--sub-text); margin-top: 8px; }
     .gmp-wrap { width: 100%; }
     .gmp-wrap gmp-place-autocomplete { width: 100%; }
     .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -252,7 +259,6 @@
         <button id="authSubmitBtn" class="btn-submit" onclick="authSubmit()">登入</button>
         <div style="display:flex; justify-content:space-between; margin-top:12px; font-size:13px;">
           <a href="javascript:void(0)" onclick="authForgotPassword()" style="color:var(--brand-main); font-weight:700;">忘記密碼</a>
-          <a href="javascript:void(0)" onclick="openForgotUser()" style="color:var(--brand-main); font-weight:700;">忘記帳號</a>
         </div>
         <p id="authMsg" style="font-size:13px; margin-top:12px; min-height:18px; text-align:center;"></p>
         <!-- Google 登入（已隱藏，程式碼保留） -->
@@ -512,12 +518,37 @@
         <label class="form-label">縮圖連結</label>
         <input type="text" id="spotThumbUrl" class="form-control" placeholder="圖片網址（選填）" oninput="updateSpotThumbPreview()">
         <img id="spotThumbPreview" class="spot-thumb-preview" alt="" style="display:none;" onerror="this.style.display='none'">
+        <div id="spotThumbAdjust" class="thumb-adjust" style="display:none;">
+          <div style="font-size:12px; color:var(--sub-text); margin-bottom:4px;">拖拉滑桿，調整縮圖要露出的部分（圖片會統一裁成固定大小）</div>
+          <div class="thumb-adjust-row">左右 <input type="range" id="spotThumbX" min="0" max="100" value="50" oninput="updateSpotThumbPreview()"></div>
+          <div class="thumb-adjust-row">上下 <input type="range" id="spotThumbY" min="0" max="100" value="50" oninput="updateSpotThumbPreview()"></div>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">詳細說明 / 筆記</label>
         <textarea id="spotDescInput" class="form-control" rows="4" placeholder="門票資訊、交通方式、必買伴手禮..."></textarea>
       </div>
       <button class="btn-submit" onclick="saveSpotFromModal()">儲存景點</button>
+    </div>
+  </div>
+
+  <!-- 行前注意備忘錄（D0）：新增／編輯備註卡片 -->
+  <div id="prepNoteModal" class="modal-mask">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:17px; font-weight:800;" id="prepNoteModalTitle">📝 新增備註</h3>
+        <button onclick="closePrepNoteModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+      <input type="hidden" id="prepNoteKey" value="">
+      <div class="form-group">
+        <label class="form-label">標題（例如：護照、機票、保險、住宿地址）</label>
+        <input type="text" id="prepNoteTitle" class="form-control" placeholder="例如：機票資訊">
+      </div>
+      <div class="form-group">
+        <label class="form-label">內容（可自由輸入，換行會保留）</label>
+        <textarea id="prepNoteBody" class="form-control" rows="8" placeholder="航班號碼、訂位代號、要帶的東西、注意事項..."></textarea>
+      </div>
+      <button class="btn-submit" onclick="savePrepNote()">儲存備註</button>
     </div>
   </div>
 
@@ -586,19 +617,6 @@
     </div>
   </div>
 
-  <!-- 忘記帳號 -->
-  <div id="forgotUserModal" class="modal-mask">
-    <div class="modal-box" style="max-width:420px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 style="font-size:17px; font-weight:800;">🔎 忘記帳號</h3>
-        <button onclick="closeForgotUser()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
-      </div>
-      <label class="form-label">輸入註冊時的名字，會列出對應的 Email（遮蔽部分字元）</label>
-      <input type="text" id="forgotUserName" class="form-control" placeholder="例如：小明">
-      <button class="btn-submit" style="margin-top:10px;" onclick="forgotUserSearch()">查詢</button>
-      <div id="forgotUserResult" style="font-size:14px; margin-top:12px; line-height:1.8;"></div>
-    </div>
-  </div>
 
   <!-- 會員專區 -->
   <div id="memberZoneModal" class="modal-mask">
@@ -665,15 +683,15 @@
     });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261115b"></script>
-  <script src="./app-state.js?v=20261115b"></script>
-  <script src="./dashboard.js?v=20261115b"></script>
-  <script src="./auth.js?v=20261115b"></script>
-  <script src="./members.js?v=20261115b"></script>
-  <script src="./join.js?v=20261115b"></script>
-  <script src="./identity.js?v=20261115b"></script>
-  <script src="./itinerary.js?v=20261115b"></script>
-  <script src="./expenses.js?v=20261115b"></script>
-  <script src="./ai-importer.js?v=20261115b"></script>
+  <script type="module" src="./firebase-config.js?v=20261115c"></script>
+  <script src="./app-state.js?v=20261115c"></script>
+  <script src="./dashboard.js?v=20261115c"></script>
+  <script src="./auth.js?v=20261115c"></script>
+  <script src="./members.js?v=20261115c"></script>
+  <script src="./join.js?v=20261115c"></script>
+  <script src="./identity.js?v=20261115c"></script>
+  <script src="./itinerary.js?v=20261115c"></script>
+  <script src="./expenses.js?v=20261115c"></script>
+  <script src="./ai-importer.js?v=20261115c"></script>
 </body>
 </html>
