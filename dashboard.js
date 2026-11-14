@@ -253,6 +253,50 @@ window.selectCover = function(scope, idx) {
   renderCoverPicker(scope, idx);
 };
 
+// ===== 配色主題（只在專案頁切換，且只有團主可以改）=====
+window.PROJECT_THEMES = [
+  { key: 'teal',   name: '青綠（預設）' },
+  { key: 'bronze', name: '銅棕' },
+  { key: 'gold',   name: '金黃' },
+  { key: 'green',  name: '橄欖綠' },
+  { key: 'blue',   name: '藍' },
+  { key: 'plum',   name: '紫' }
+];
+
+// 下拉選單：只有團主（或網站管理員）看得到；其他人不顯示
+function renderProjectThemeSelect() {
+  const sel = document.getElementById('projThemeSelect');
+  if (!sel) return;
+  const p = window.activeProjectData;
+  const can = !!p && window.canManageProject(p);
+  sel.style.display = can ? '' : 'none';
+  if (!can) return;
+  sel.innerHTML = window.PROJECT_THEMES.map(t => `<option value="${t.key}">🎨 ${t.name}</option>`).join('');
+  sel.value = (window.THEME_KEYS.indexOf(p.theme) !== -1) ? p.theme : 'teal';
+}
+
+window.changeProjectTheme = function(key) {
+  const id = window.activeProjectId;
+  const p = window.activeProjectData;
+  if (!id || !p || !window.canManageProject(p)) {
+    alert('只有團主可以更換專案配色。');
+    renderProjectThemeSelect();
+    return;
+  }
+  if (window.THEME_KEYS.indexOf(key) === -1) return;
+  const prev = p.theme;
+  p.theme = key;
+  window.applyTheme(key);
+  if (window.allProjects && window.allProjects[id]) window.allProjects[id].theme = key;
+  window.dbUpdate(window.dbRef(window.db, `projects/${id}`), { theme: key })
+    .catch(err => {
+      alert('配色儲存失敗：' + err.message);
+      p.theme = prev;
+      window.applyTheme(prev);
+      renderProjectThemeSelect();
+    });
+};
+
 // 幣別選擇器（搜尋 + 標籤 chips），建立 / 編輯共用
 const CURRENCY_IDS = {
   new:  { search: 'newCurrencySearch',  dropdown: 'newCurrencyDropdown',  chips: 'newCurrencyChips' },
@@ -585,6 +629,7 @@ function restoreViewState() {
 function refreshOpenProject() {
   if (document.body.classList.contains('dragging-spot')) return;
   if (!window.activeProjectData) return;
+  window.applyTheme(window.activeProjectData.theme);
 
   window.renderProjectHeader();
   window.renderItineraryFromJSON(window.activeProjectData.itinerary);
@@ -649,6 +694,8 @@ window.renderProjectHeader = function() {
     roleEl.className = 'role-badge ' + cls;
     roleEl.innerText = label;
   }
+
+  renderProjectThemeSelect();
 
   const canEdit = window.canEditContent(window.activeProjectData);
   ['spotImportBar', 'expImportBar'].forEach(id => {
