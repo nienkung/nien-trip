@@ -249,6 +249,19 @@ window.switchView = function(viewId) {
   document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
   const target = document.getElementById('view-' + viewId);
   if (target) target.classList.add('active');
+  window._currentView = viewId;
+  window.saveViewState();
+};
+
+// 記住目前所在的頁面（同一分頁內，重整後會回到原位）
+window.saveViewState = function() {
+  try {
+    sessionStorage.setItem('nt_view', JSON.stringify({
+      view: window._currentView || 'login',
+      pid: window.activeProjectId || null,
+      tab: window._currentTab || 'itinerary'
+    }));
+  } catch (e) {}
 };
 
 // 啟動時抓一次即時匯率
