@@ -13,6 +13,9 @@ import {
   reauthenticateWithCredential, EmailAuthProvider,
   GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import {
+  getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
 const PROD_HOST = "nien-trip.vercel.app";
 
@@ -54,6 +57,13 @@ if (!IS_PROD) {
 }
 
 const app = initializeApp(firebaseConfig);
+
+// 發票／收據圖片（Firebase Storage）
+window.storage = getStorage(app);
+window.sRef = sRef;
+window.uploadBytes = uploadBytes;
+window.getDownloadURL = getDownloadURL;
+window.deleteObject = deleteObject;
 
 // 資料庫
 const db = getDatabase(app);
