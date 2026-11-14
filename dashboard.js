@@ -554,9 +554,23 @@ window.deleteProject = function(id) {
 // ===== 進入 / 離開專案 =====
 
 window.enterProject = function(projectId) {
+  const target = window.allProjects[projectId];
+  if (!target) return;
+
+  // 訪客（非團員）一律不能進入專案內頁；只能送出申請，等團主同意
+  if (!window.canEditContent(target)) {
+    if (typeof window.requestJoinProject === 'function' && window.currentUser) {
+      if (confirm('這是別人的旅程，需要團主同意後才能進入。要送出加入申請嗎？')) {
+        window.requestJoinProject(projectId);
+      }
+    } else {
+      alert('這是別人的旅程，需要團主同意後才能進入。');
+    }
+    return;
+  }
+
   window.activeProjectId = projectId;
-  window.activeProjectData = window.allProjects[projectId];
-  if (!window.activeProjectData) return;
+  window.activeProjectData = target;
 
   const titleElem = document.getElementById('activeProjectTitle');
   if (titleElem) titleElem.innerText = window.activeProjectData.title;
