@@ -1,6 +1,6 @@
-// Firebase 設定（nien-trip 專案）
-// 注意：databaseURL 請到 Firebase Console → Realtime Database 頁面確認，
-// 網址和下面不一樣的話，改成頁面上顯示的那一個。
+// Firebase 設定（nien-trip）
+// 環境切換：只有正式網址（nien-trip.vercel.app）使用正式資料，
+// 其他所有網址（預覽網址、本機）一律使用測試資料，避免誤寫入正式站。
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import {
@@ -14,7 +14,10 @@ import {
   GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
-const firebaseConfig = {
+const PROD_HOST = "nien-trip.vercel.app";
+
+// 正式站（不要改動）
+const PROD_CONFIG = {
   apiKey: "AIzaSyAa3VDRzsGlWY5NPhWTMpnhLZev5ImJCJA",
   authDomain: "nien-trip.firebaseapp.com",
   databaseURL: "https://nien-trip-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -24,6 +27,31 @@ const firebaseConfig = {
   appId: "1:659304143635:web:9175c6836ba4f985c9d8e6",
   measurementId: "G-L7BC11Q0NG"
 };
+
+// 測試站（待填：請貼上測試專案的設定）
+const TEST_CONFIG = {
+  apiKey: "請貼上",
+  authDomain: "請貼上",
+  databaseURL: "請貼上",
+  projectId: "請貼上",
+  storageBucket: "請貼上",
+  messagingSenderId: "請貼上",
+  appId: "請貼上"
+};
+
+const IS_PROD = window.location.hostname === PROD_HOST;
+const firebaseConfig = IS_PROD ? PROD_CONFIG : TEST_CONFIG;
+window.APP_ENV = IS_PROD ? "prod" : "test";
+
+// 非正式站：畫面下方顯示提醒，避免把測試站當成正式站
+if (!IS_PROD) {
+  document.addEventListener("DOMContentLoaded", () => {
+    const bar = document.createElement("div");
+    bar.textContent = "🧪 測試環境（資料與正式站分開）";
+    bar.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#F6AD55;color:#fff;text-align:center;font-size:12px;font-weight:800;padding:4px;z-index:9999;";
+    document.body.appendChild(bar);
+  });
+}
 
 const app = initializeApp(firebaseConfig);
 
