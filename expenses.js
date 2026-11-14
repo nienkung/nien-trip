@@ -1,3 +1,12 @@
+// 記帳與結算數字：僅團員 / 團主 / 網站管理員可看；訪客（非該團成員）只能看行程
+window.canViewExpenses = function(proj) {
+  return window.canEditContent(proj);
+};
+
+function expenseLockedHTML() {
+  return `<div style="font-size:13px; color:var(--sub-text); text-align:center; padding:24px 12px;">🔒 記帳與分帳明細僅限團員查看<br>（你目前是訪客，可查看行程）</div>`;
+}
+
 window.updateExpenseFormOptions = function() {
   if (!window.activeProjectData) return;
   const proj = window.activeProjectData;
@@ -79,6 +88,14 @@ window.saveExpense = function(e) {
 window.renderExpenses = function() {
   const container = document.getElementById('expenseDayList');
   if (!container || !window.activeProjectData) return;
+
+  // 訪客：不渲染任何金額明細
+  if (!window.canViewExpenses(window.activeProjectData)) {
+    container.innerHTML = expenseLockedHTML();
+    const lockedTotal = document.getElementById('totalGroupExpense');
+    if (lockedTotal) lockedTotal.innerText = '🔒';
+    return;
+  }
 
   const expenses = window.activeProjectData.expenses || {};
   const daysList = window.getDynamicProjectDays(window.activeProjectData);
@@ -225,6 +242,12 @@ window.deleteExpense = function(expId) {
 window.renderSettlement = function() {
   const container = document.getElementById('settlementDetails');
   if (!container || !window.activeProjectData) return;
+
+  // 訪客：不渲染任何收支與轉帳資訊
+  if (!window.canViewExpenses(window.activeProjectData)) {
+    container.innerHTML = expenseLockedHTML();
+    return;
+  }
 
   const expenses = window.activeProjectData.expenses || {};
   const members = window.getAllSplitNames(window.activeProjectData);
