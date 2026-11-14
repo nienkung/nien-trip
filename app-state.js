@@ -245,11 +245,20 @@ window.escapeHtml = function(str) {
     .replace(/'/g, '&#39;');
 };
 
+// 配色主題：預設為原本青綠色；只有專案頁套用該專案的配色
+window.THEME_KEYS = ['teal', 'bronze', 'gold', 'green', 'blue', 'plum'];
+window.applyTheme = function(key) {
+  const root = document.documentElement;
+  if (!key || key === 'teal' || window.THEME_KEYS.indexOf(key) === -1) root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', key);
+};
+
 window.switchView = function(viewId) {
   document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
   const target = document.getElementById('view-' + viewId);
   if (target) target.classList.add('active');
   window._currentView = viewId;
+  window.applyTheme(viewId === 'project' && window.activeProjectData ? window.activeProjectData.theme : null);
   window.saveViewState();
 };
 
