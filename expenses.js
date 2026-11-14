@@ -56,7 +56,8 @@ window.updateExpenseFormOptions = function() {
 // ===== 發票／收據：圖片先縮小再上傳到 Firebase Storage =====
 
 const RECEIPT_MAX_BYTES = 10 * 1024 * 1024; // 原檔上限 10MB
-const RECEIPT_MAX_SIDE = 1600;              // 圖片長邊最多 1600px
+const RECEIPT_MAX_SIDE = 1600;              // 圖片長邊最多 1600px（原圖）
+const RECEIPT_THUMB_SIDE = 320;             // 縮圖長邊 320px（列表用）
 
 function receiptStorageReady() {
   return !!(window.storage && window.sRef && window.uploadBytes && window.getDownloadURL && window.deleteObject);
@@ -76,7 +77,19 @@ function loadImageFromFile(file) {
   });
 }
 
-// 圖片：縮到長邊 1600px、JPEG 壓縮；PDF：原樣上傳
+// 把圖片縮到指定長邊並輸出 JPEG
+function scaleImageToJpeg(img, maxSide, quality) {
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+  return new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+}
+
+// 圖片：原圖縮到長邊 1600px、另產生 320px 縮圖；PDF：原樣上傳，不產生縮圖
 async function prepareReceiptFile(file) {
   if (file.size > RECEIPT_MAX_BYTES) throw new Error(`「${file.name}」超過 10MB，請換小一點的檔案。`);
   if (file.type === 'application/pdf') return { blob: file, ext: 'pdf', contentType: 'application/pdf' };
@@ -91,16 +104,10 @@ async function prepareReceiptFile(file) {
     return { blob: file, ext, contentType: file.type || 'application/octet-stream' };
   }
 
-  const scale = Math.min(1, RECEIPT_MAX_SIDE / Math.max(img.width, img.height));
-  const w = Math.round(img.width * scale);
-  const h = Math.round(img.height * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.82));
+  const blob = await scaleImageToJpeg(img, RECEIPT_MAX_SIDE, 0.82);
   if (!blob) return { blob: file, ext: 'jpg', contentType: file.type };
-  return { blob, ext: 'jpg', contentType: 'image/jpeg' };
+  const thumb = await scaleImageToJpeg(img, RECEIPT_THUMB_SIDE, 0.7);
+  return { blob, thumb, ext: 'jpg', contentType: 'image/jpeg' };
 }
 
 // 上傳一批檔案到某筆記帳底下，並寫入 expenses/{id}/receipts/{rid}
@@ -117,6 +124,15 @@ async function uploadReceipts(expId, files) {
     const url = await window.getDownloadURL(fileRef);
 
     const rec = { url, path, name: file.name, type: prepared.contentType, at: Date.now() };
+
+    // 縮圖：列表用，體積小，可大幅減少下載流量
+    if (prepared.thumb) {
+      const tPath = `receipts/${pid}/${expId}/${rid}_thumb.jpg`;
+      const tRef = window.sRef(window.storage, tPath);
+      await window.uploadBytes(tRef, prepared.thumb, { contentType: 'image/jpeg' });
+      rec.thumbUrl = await window.getDownloadURL(tRef);
+      rec.thumbPath = tPath;
+    }
     await window.dbSet(window.dbRef(window.db, `projects/${pid}/expenses/${expId}/receipts/${rid}`), rec);
 
     // 同步本機資料，畫面馬上能看到
@@ -136,6 +152,15 @@ function receiptsOf(exp) {
 
 function isImageReceipt(r) {
   return !!(r && r.type && r.type.startsWith('image/'));
+}
+
+// 刪除某張發票的原圖與縮圖（失敗不影響其他流程）
+async function deleteReceiptFiles(rec) {
+  if (!rec || !receiptStorageReady()) return;
+  for (const p of [rec.path, rec.thumbPath]) {
+    if (!p) continue;
+    try { await window.deleteObject(window.sRef(window.storage, p)); } catch (e) {}
+  }
 }
 
 // ===== 記帳新增 =====
@@ -224,7 +249,7 @@ function expenseItemHTML(id, data, canEdit) {
   const strip = recs.length ? `
     <div class="receipt-strip">
       ${recs.map(([, r]) => isImageReceipt(r)
-        ? `<a href="${window.escapeHtml(r.url)}" target="_blank"><img class="receipt-thumb-sm" src="${window.escapeHtml(r.url)}" alt=""></a>`
+        ? `<a href="${window.escapeHtml(r.url)}" target="_blank"><img class="receipt-thumb-sm" src="${window.escapeHtml(r.thumbUrl || r.url)}" alt="" loading="lazy"></a>`
         : `<a class="receipt-file-sm" href="${window.escapeHtml(r.url)}" target="_blank">📄 ${window.escapeHtml(r.name || '檔案')}</a>`
       ).join('')}
     </div>` : '';
@@ -361,7 +386,7 @@ function renderEditReceipts(expId) {
   box.innerHTML = recs.length ? recs.map(([rid, r]) => `
     <div class="receipt-row">
       ${isImageReceipt(r)
-        ? `<a href="${window.escapeHtml(r.url)}" target="_blank"><img class="receipt-thumb" src="${window.escapeHtml(r.url)}" alt=""></a>`
+        ? `<a href="${window.escapeHtml(r.url)}" target="_blank"><img class="receipt-thumb" src="${window.escapeHtml(r.thumbUrl || r.url)}" alt="" loading="lazy"></a>`
         : '<span class="receipt-pdf">📄</span>'}
       <a href="${window.escapeHtml(r.url)}" target="_blank" class="receipt-name">${window.escapeHtml(r.name || '檔案')}</a>
       <button class="btn-delete" onclick="deleteReceipt('${expId}','${rid}')">🗑️</button>
@@ -393,9 +418,7 @@ window.deleteReceipt = async function(expId, rid) {
   const exp = window.activeProjectData.expenses && window.activeProjectData.expenses[expId];
   const rec = exp && exp.receipts ? exp.receipts[rid] : null;
   try {
-    if (rec && rec.path && receiptStorageReady()) {
-      try { await window.deleteObject(window.sRef(window.storage, rec.path)); } catch (e) {}
-    }
+    if (rec) await deleteReceiptFiles(rec);
     await window.dbRemove(window.dbRef(window.db, `projects/${window.activeProjectId}/expenses/${expId}/receipts/${rid}`));
     if (exp && exp.receipts) delete exp.receipts[rid];
     renderEditReceipts(expId);
@@ -491,12 +514,8 @@ window.deleteExpense = async function(expId) {
 
   // 一併刪除附加的發票檔案（失敗不影響刪除記帳本身）
   const exp = window.activeProjectData.expenses && window.activeProjectData.expenses[expId];
-  if (exp && exp.receipts && receiptStorageReady()) {
-    for (const rec of Object.values(exp.receipts)) {
-      if (rec && rec.path) {
-        try { await window.deleteObject(window.sRef(window.storage, rec.path)); } catch (e) {}
-      }
-    }
+  if (exp && exp.receipts) {
+    for (const rec of Object.values(exp.receipts)) await deleteReceiptFiles(rec);
   }
 
   if (window.dbRemove && window.dbRef && window.db) {
