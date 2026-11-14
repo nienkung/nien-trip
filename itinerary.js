@@ -495,6 +495,8 @@ window.deletePrepNote = function(key) {
 };
 
 window.switchProjectTab = function(tabName) {
+  window._currentTab = tabName;
+  if (window.saveViewState) window.saveViewState();
   document.querySelectorAll('#view-project .tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-subcontent').forEach(sub => sub.classList.remove('active'));
 
