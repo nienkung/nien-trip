@@ -58,7 +58,7 @@ async function mountSpotAutocomplete() {
   });
 }
 
-// ===== 縮圖：固定尺寸裁切 + 使用者調整露出位置 =====
+// ===== 縮圖：固定 1:1 裁切；位置由使用者在圖片上拖曳決定 =====
 
 function clampPct(v) {
   const n = Number(v);
@@ -88,6 +88,51 @@ window.updateSpotThumbPreview = function() {
   }
 };
 
+// 在縮圖上按住拖曳（滑鼠或手指皆可）：拖到哪，就露出那一部分
+(function () {
+  let st = null;
+  const readPct = (id) => clampPct((document.getElementById(id) || {}).value);
+  const setPos = (x, y) => {
+    const xEl = document.getElementById('spotThumbX');
+    const yEl = document.getElementById('spotThumbY');
+    if (xEl) xEl.value = Math.round(x);
+    if (yEl) yEl.value = Math.round(y);
+    window.updateSpotThumbPreview();
+  };
+
+  document.addEventListener('pointerdown', (e) => {
+    const box = e.target.closest && e.target.closest('#spotThumbDrag');
+    if (!box) return;
+    const img = document.getElementById('spotThumbPreview');
+    if (!img || !img.naturalWidth) return;
+    e.preventDefault();
+    try { box.setPointerCapture(e.pointerId); } catch (err) {}
+    st = { box, img, pid: e.pointerId, sx: e.clientX, sy: e.clientY, x0: readPct('spotThumbX'), y0: readPct('spotThumbY') };
+    box.classList.add('dragging');
+  });
+
+  document.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.pid) return;
+    const bw = st.box.clientWidth, bh = st.box.clientHeight;
+    const nw = st.img.naturalWidth, nh = st.img.naturalHeight;
+    const scale = Math.max(bw / nw, bh / nh);
+    const overX = nw * scale - bw; // 圖片超出方框的寬度（像素）
+    const overY = nh * scale - bh; // 圖片超出方框的高度（像素）
+    let x = st.x0, y = st.y0;
+    if (overX > 0) x = Math.max(0, Math.min(100, st.x0 - (e.clientX - st.sx) / overX * 100));
+    if (overY > 0) y = Math.max(0, Math.min(100, st.y0 - (e.clientY - st.sy) / overY * 100));
+    setPos(x, y);
+  });
+
+  const endDrag = (e) => {
+    if (!st || e.pointerId !== st.pid) return;
+    st.box.classList.remove('dragging');
+    st = null;
+  };
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+})();
+
 // ===== 行程展開狀態：新增／刪除後保留原本開著的天數 =====
 
 window._itinProjId = null;
@@ -112,25 +157,39 @@ function fmtNoteTime(ts) {
   return new Date(ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// 景點卡片：有縮圖時左圖（1:1）右文字；沒有縮圖時只有文字
 function spotCardHTML(dayKey, spot, spotIdx, canEdit) {
   const mapHref = spot.mapUrl ? spot.mapUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title || '')}`;
   const posX = clampPct(spot.thumbX);
   const posY = clampPct(spot.thumbY);
+  const hasThumb = !!spot.thumbUrl;
   return `
     <div class="spot-card">
+      <div class="spot-body ${hasThumb ? 'has-thumb' : ''}">
+        ${hasThumb ? `
+        <div class="spot-thumb-wrap">
+          <img class="spot-thumb" src="${window.escapeHtml(spot.thumbUrl)}" alt="" style="object-position:${posX}% ${posY}%" onerror="this.style.display='none'">
+        </div>` : ''}
+        <div class="spot-text">
+          ${spot.time ? `<span class="spot-time">⏰ ${window.escapeHtml(spot.time)}</span>` : ''}
+          <div class="spot-title">${window.escapeHtml(spot.title)}</div>
+          ${spot.desc ? `<div class="spot-desc">${window.escapeHtml(spot.desc)}</div>` : ''}
+          <div class="btn-group">
+            <a href="${window.escapeHtml(mapHref)}" target="_blank" class="map-btn">📍 地圖導航</a>
+          </div>
+        </div>
+      </div>
       ${canEdit ? `
       <div class="spot-actions">
+        <span class="drag-handle" title="按住上下拖曳可調整順序">⠿ 拖曳排序</span>
         <button class="btn-spot-edit" onclick="openSpotModal('${dayKey}', ${spotIdx})">✏️ 修改</button>
         <button class="btn-spot-del" onclick="deleteSpot('${dayKey}', ${spotIdx})">🗑️ 刪除</button>
       </div>` : ''}
-      ${spot.thumbUrl ? `<img class="spot-thumb" src="${window.escapeHtml(spot.thumbUrl)}" alt="" style="object-position:${posX}% ${posY}%" onerror="this.style.display='none'">` : ''}
-      ${spot.time ? `<span class="spot-time">⏰ ${window.escapeHtml(spot.time)}</span>` : ''}
-      <div class="spot-title">${window.escapeHtml(spot.title)}</div>
-      ${spot.desc ? `<div class="spot-desc">${window.escapeHtml(spot.desc)}</div>` : ''}
-      <div class="btn-group">
-        <a href="${window.escapeHtml(mapHref)}" target="_blank" class="map-btn">📍 地圖導航</a>
-      </div>
     </div>`;
+}
+
+function spotListHTML(dayKey, spots, canEdit) {
+  return `<div class="spot-list" data-day="${dayKey}">${spots.map((s, i) => spotCardHTML(dayKey, s, i, canEdit)).join('')}</div>`;
 }
 
 function prepNotesHTML(notes, canEdit) {
@@ -187,9 +246,7 @@ window.renderItineraryFromJSON = function(data) {
     let body = '';
     if (isPrep) {
       body += prepNotesHTML(proj.prepNotes, canEdit);
-      if (spots.length) {
-        body += spots.map((s, i) => spotCardHTML(dayKey, s, i, canEdit)).join('');
-      }
+      if (spots.length) body += spotListHTML(dayKey, spots, canEdit);
     } else {
       if (canEdit) {
         body += `
@@ -198,7 +255,7 @@ window.renderItineraryFromJSON = function(data) {
           </div>`;
       }
       body += spots.length > 0
-        ? spots.map((s, i) => spotCardHTML(dayKey, s, i, canEdit)).join('')
+        ? spotListHTML(dayKey, spots, canEdit)
         : `<div style="font-size:13px; color:var(--sub-text); text-align:center; padding:12px;">尚無景點，${canEdit ? '點擊上方按鈕新增！' : '團員新增後會顯示於此。'}</div>`;
     }
 
@@ -216,9 +273,88 @@ window.renderItineraryFromJSON = function(data) {
   });
 
   container.innerHTML = html;
-  // 同一個專案內的操作（新增／刪除／修改）保留捲動位置
+  // 同一個專案內的操作（新增／刪除／修改／排序）保留捲動位置
   if (sameProject) window.scrollTo(0, scrollY);
 };
+
+// ===== 景點拖曳排序（同一天內上下拖曳）=====
+(function () {
+  const GAP = 12; // 與 .spot-card 之間的間距（須和 CSS 的 margin 相同）
+  let st = null;
+
+  document.addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest && e.target.closest('.drag-handle');
+    if (!handle) return;
+    const list = handle.closest('.spot-list');
+    if (!list || !window.canEditContent(window.activeProjectData)) return;
+    const cards = Array.from(list.querySelectorAll(':scope > .spot-card'));
+    const card = handle.closest('.spot-card');
+    const from = cards.indexOf(card);
+    if (from < 0) return;
+    e.preventDefault();
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    st = {
+      pid: e.pointerId,
+      dayKey: list.dataset.day,
+      cards,
+      card,
+      from,
+      to: from,
+      startY: e.clientY,
+      mids: cards.map(c => { const r = c.getBoundingClientRect(); return r.top + r.height / 2; }),
+      step: card.getBoundingClientRect().height + GAP
+    };
+    card.classList.add('dragging');
+  });
+
+  document.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.pid) return;
+    const dy = e.clientY - st.startY;
+    st.card.style.transform = `translateY(${dy}px)`;
+
+    // 目標位置 = 其他卡片中，中心點在拖曳中心之上的數量
+    const center = st.mids[st.from] + dy;
+    let to = 0;
+    st.mids.forEach((m, i) => { if (i !== st.from && m < center) to++; });
+    st.to = to;
+
+    // 其他卡片往上或往下讓位
+    st.cards.forEach((c, i) => {
+      if (i === st.from) return;
+      let shift = 0;
+      if (st.from < to && i > st.from && i <= to) shift = -st.step;
+      if (to < st.from && i >= to && i < st.from) shift = st.step;
+      c.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+  });
+
+  const endDrag = (e) => {
+    if (!st || e.pointerId !== st.pid) return;
+    const s = st;
+    st = null;
+    s.cards.forEach(c => { c.style.transform = ''; });
+    s.card.classList.remove('dragging');
+    if (e.type === 'pointerup' && s.to !== s.from) moveSpot(s.dayKey, s.from, s.to);
+  };
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+})();
+
+function moveSpot(dayKey, from, to) {
+  if (!window.canEditContent(window.activeProjectData)) return;
+  const proj = window.activeProjectData;
+  const spots = proj.itinerary && proj.itinerary[dayKey] && proj.itinerary[dayKey].spots;
+  if (!spots || from < 0 || from >= spots.length) return;
+
+  const [item] = spots.splice(from, 1);
+  spots.splice(to, 0, item);
+  window.renderItineraryFromJSON(proj.itinerary);
+
+  if (window.dbSet && window.dbRef && window.db) {
+    window.dbSet(window.dbRef(window.db, `projects/${window.activeProjectId}/itinerary`), proj.itinerary)
+      .catch(err => alert('排序儲存失敗：' + err.message));
+  }
+}
 
 // ===== 景點新增 / 編輯彈窗 =====
 
