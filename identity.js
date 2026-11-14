@@ -102,7 +102,13 @@
     } else {
       members.push({ name: name, uid: uid });
     }
-    return window.dbUpdate(window.dbRef(window.db, `projects/${projectId}`), { members: members });
+    return window.dbUpdate(window.dbRef(window.db, `projects/${projectId}`), { members: members })
+      .then(() => {
+        // 先同步本機資料，讓剛加入的人馬上可以進入專案（不必等資料庫回傳）
+        if (window.allProjects && window.allProjects[projectId]) {
+          window.allProjects[projectId].members = members;
+        }
+      });
   };
 
   // 邀請連結：覆寫 dashboard.js 的 processPendingInvite（改用 uid）
