@@ -253,43 +253,49 @@ window.selectCover = function(scope, idx) {
   renderCoverPicker(scope, idx);
 };
 
-// 配色主題（建立 / 編輯共用）：key 會存進專案的 theme 欄位，沒有設定的舊專案視為 teal
+// ===== 配色主題（只在專案頁切換，且只有團主可以改）=====
 window.PROJECT_THEMES = [
-  { key: 'teal',   name: '青綠（預設）', color: '#00A896' },
-  { key: 'bronze', name: '銅棕',         color: '#CC7D57' },
-  { key: 'gold',   name: '金黃',         color: '#B37A00' },
-  { key: 'green',  name: '橄欖綠',       color: '#859166' },
-  { key: 'blue',   name: '藍',           color: '#5E889C' },
-  { key: 'plum',   name: '紫',           color: '#9E7696' }
+  { key: 'teal',   name: '青綠（預設）' },
+  { key: 'bronze', name: '銅棕' },
+  { key: 'gold',   name: '金黃' },
+  { key: 'green',  name: '橄欖綠' },
+  { key: 'blue',   name: '藍' },
+  { key: 'plum',   name: '紫' }
 ];
-const THEME_PICKER_MAP = {
-  new:  { box: 'newThemePicker',  hidden: 'newThemeKey' },
-  edit: { box: 'editThemePicker', hidden: 'editThemeKey' }
-};
 
-function renderThemePicker(scope, selectedKey) {
-  const map = THEME_PICKER_MAP[scope];
-  if (!map) return;
-  const box = document.getElementById(map.box);
-  const hidden = document.getElementById(map.hidden);
-  const key = window.THEME_KEYS.indexOf(selectedKey) === -1 ? 'teal' : selectedKey;
-  if (hidden) hidden.value = key;
-  if (!box) return;
-  box.innerHTML = window.PROJECT_THEMES.map(t =>
-    `<div class="theme-swatch ${t.key === key ? 'selected' : ''}" style="background:${t.color};" onclick="selectTheme('${scope}', '${t.key}')">${window.escapeHtml(t.name)}</div>`
-  ).join('');
+// 下拉選單：只有團主（或網站管理員）看得到；其他人不顯示
+function renderProjectThemeSelect() {
+  const sel = document.getElementById('projThemeSelect');
+  if (!sel) return;
+  const p = window.activeProjectData;
+  const can = !!p && window.canManageProject(p);
+  sel.style.display = can ? '' : 'none';
+  if (!can) return;
+  sel.innerHTML = window.PROJECT_THEMES.map(t => `<option value="${t.key}">🎨 ${t.name}</option>`).join('');
+  sel.value = (window.THEME_KEYS.indexOf(p.theme) !== -1) ? p.theme : 'teal';
 }
 
-window.selectTheme = function(scope, key) {
-  renderThemePicker(scope, key);
+window.changeProjectTheme = function(key) {
+  const id = window.activeProjectId;
+  const p = window.activeProjectData;
+  if (!id || !p || !window.canManageProject(p)) {
+    alert('只有團主可以更換專案配色。');
+    renderProjectThemeSelect();
+    return;
+  }
+  if (window.THEME_KEYS.indexOf(key) === -1) return;
+  const prev = p.theme;
+  p.theme = key;
+  window.applyTheme(key);
+  if (window.allProjects && window.allProjects[id]) window.allProjects[id].theme = key;
+  window.dbUpdate(window.dbRef(window.db, `projects/${id}`), { theme: key })
+    .catch(err => {
+      alert('配色儲存失敗：' + err.message);
+      p.theme = prev;
+      window.applyTheme(prev);
+      renderProjectThemeSelect();
+    });
 };
-
-function readThemeKey(scope) {
-  const map = THEME_PICKER_MAP[scope];
-  const hidden = map && document.getElementById(map.hidden);
-  const key = hidden ? hidden.value : 'teal';
-  return window.THEME_KEYS.indexOf(key) === -1 ? 'teal' : key;
-}
 
 // 幣別選擇器（搜尋 + 標籤 chips），建立 / 編輯共用
 const CURRENCY_IDS = {
@@ -364,7 +370,6 @@ window.openNewProjectModal = function() {
   const coverIdx = document.getElementById('newCoverIndex');
   if (coverIdx) coverIdx.value = -1;
   renderCoverPicker('new', -1);
-  renderThemePicker('new', 'teal');
   initCurrencyPicker('new', ['TWD', 'JPY']);
 
   const modal = document.getElementById('createProjectModal');
@@ -460,7 +465,6 @@ window.submitCreateProject = async function() {
   };
   if (!isNaN(coverIndex) && coverIndex >= 0) newProjData.coverIndex = coverIndex;
   if (coverImage) newProjData.coverImage = coverImage;
-  newProjData.theme = readThemeKey('new');
 
   if (window.dbPush && window.dbRef && window.db) {
     try {
@@ -493,7 +497,6 @@ window.openEditProjectModal = function(id) {
   const coverIndex = (typeof p.coverIndex === 'number') ? p.coverIndex : -1;
   document.getElementById('editCoverIndex').value = coverIndex;
   renderCoverPicker('edit', coverIndex);
-  renderThemePicker('edit', p.theme || 'teal');
   initCurrencyPicker('edit', window.getProjectCurrencies(p));
 
   // 網站管理員才顯示「重新指定團主」
@@ -546,8 +549,6 @@ window.submitEditProject = function() {
     coverIndex: (isNaN(coverIndex) || coverIndex < 0) ? null : coverIndex,
     currencies: currencies
   };
-
-  updates.theme = readThemeKey('edit');
 
   // 日期有變 → 重建行程天數骨架，保留既有景點
   const dateChanged = (startDateStr !== p.startDate) || (endDateStr !== p.endDate);
@@ -693,6 +694,8 @@ window.renderProjectHeader = function() {
     roleEl.className = 'role-badge ' + cls;
     roleEl.innerText = label;
   }
+
+  renderProjectThemeSelect();
 
   const canEdit = window.canEditContent(window.activeProjectData);
   ['spotImportBar', 'expImportBar'].forEach(id => {
