@@ -1,4 +1,4 @@
-// 團員管理彈窗：所有人可看名單；團員可改自己暱稱；團主/管理員可完整編輯
+// 團員管理彈窗：所有人可看名單（不顯示 email）；團員可改自己暱稱；團主/管理員可完整編輯
 
 window.openMembersModal = function() {
   if (!window.activeProjectData) return alert('請先進入專案！');
@@ -56,7 +56,7 @@ window.renderMembersModal = function() {
   html += `<div class="mem-section-label">👥 團員（可登入協作）</div>`;
 
   if (canManage) {
-    // 管理者：可編輯每一列
+    // 管理者：可編輯每一列（email 不顯示，留空即保留原綁定）
     html += `<div id="memberEditList">`;
     members.forEach((m, i) => {
       html += memberEditRow(i, m);
@@ -64,7 +64,7 @@ window.renderMembersModal = function() {
     html += `</div>`;
     html += `<button class="mem-add-btn" onclick="addMemberRow()">➕ 新增團員</button>`;
   } else {
-    // 一般團員 / 訪客：唯讀，但自己那列的暱稱可改
+    // 一般團員 / 訪客：唯讀（不顯示任何 email），但自己那列的暱稱可改
     members.forEach(m => {
       const isMe = m.email && m.email.toLowerCase() === myEmail;
       html += `
@@ -73,7 +73,6 @@ window.renderMembersModal = function() {
             ${isMe
               ? `<input type="text" class="form-control mem-self-input" id="memSelfName" value="${window.escapeHtml(m.name)}" placeholder="你的暱稱">`
               : `<span class="mem-name">${window.escapeHtml(m.name)}</span>`}
-            <div class="mem-email">${m.email ? window.escapeHtml(m.email) : '—'}</div>
           </div>
           <div class="mem-row-side">${roleBadgeFor(proj, m)}${isMe ? '<span class="mem-you">你</span>' : ''}</div>
         </div>`;
@@ -111,11 +110,14 @@ window.renderMembersModal = function() {
   body.innerHTML = html;
 };
 
+// 團主編輯列：不顯示既有 email；原 email 存在 data-email，輸入框留空即保留原綁定
 function memberEditRow(i, m) {
+  const bound = !!(m && m.email);
+  const placeholder = bound ? '✅ 已綁定帳號（留空保留，填入可更換）' : 'email（填了才能登入編輯）';
   return `
-    <div class="mem-edit-row" data-idx="${i}">
-      <input type="text" class="form-control mem-in-name" value="${window.escapeHtml(m.name)}" placeholder="暱稱">
-      <input type="email" class="form-control mem-in-email" value="${window.escapeHtml(m.email)}" placeholder="email（填了才能登入編輯）">
+    <div class="mem-edit-row" data-idx="${i}" data-email="${window.escapeHtml((m && m.email) || '')}">
+      <input type="text" class="form-control mem-in-name" value="${window.escapeHtml(m ? m.name : '')}" placeholder="暱稱">
+      <input type="email" class="form-control mem-in-email" value="" placeholder="${placeholder}">
       <button class="mem-del-btn" onclick="this.closest('.mem-edit-row').remove()">🗑️</button>
     </div>`;
 }
@@ -180,7 +182,9 @@ window.saveMembers = function() {
   const members = [];
   document.querySelectorAll('#memberEditList .mem-edit-row').forEach(row => {
     const name = row.querySelector('.mem-in-name').value.trim();
-    const email = row.querySelector('.mem-in-email').value.trim();
+    // 輸入框留空 → 沿用原本綁定的 email（畫面不顯示，但資料不會被清掉）
+    const typed = row.querySelector('.mem-in-email').value.trim();
+    const email = typed || row.dataset.email || '';
     if (name) members.push({ name, email });
   });
 
@@ -192,9 +196,11 @@ window.saveMembers = function() {
 
   if (members.length === 0) return alert('至少要保留一位團員！');
 
-  // 檢查 email 格式（有填才檢查）
-  const badEmail = members.find(m => m.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m.email));
-  if (badEmail) return alert(`email 格式有誤：${badEmail.email}`);
+  // 檢查 email 格式（只檢查有新輸入的；原有綁定不再重複檢查）
+  const badInput = Array.from(document.querySelectorAll('#memberEditList .mem-in-email'))
+    .map(el => el.value.trim())
+    .find(v => v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
+  if (badInput) return alert(`email 格式有誤：${badInput}`);
 
   const updates = { members, externalPeople };
 
