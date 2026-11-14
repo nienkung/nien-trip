@@ -109,9 +109,7 @@
     :root[data-theme="blue"]   { --brand-main: #5E889C; --brand-dark: #104B68; --brand-bg: #E3EEF3; --brand-light: #F2F7F9; --brand-border: #98AAAF; --brand-rgb: 94, 136, 156; }
     :root[data-theme="plum"]   { --brand-main: #9E7696; --brand-dark: #723065; --brand-bg: #F0E6EE; --brand-light: #F8F3F7; --brand-border: #B1A0B0; --brand-rgb: 158, 118, 150; }
 
-    .theme-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-    .theme-swatch { min-width: 74px; height: 46px; padding: 0 10px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #FFF; cursor: pointer; border: 3px solid transparent; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
-    .theme-swatch.selected { border-color: #1A202C; box-shadow: 0 0 0 2px #fff, 0 0 0 5px #1A202C; }
+    .proj-theme-select { font-size: 13px; font-weight: 700; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--brand-border); background: #FFF; color: var(--brand-dark); cursor: pointer; }
 
     /* ===== 大廳：空狀態 ===== */
     .dash-empty { text-align: center; padding: 28px 16px; background: #FFF; border: 1.5px dashed var(--brand-border); border-radius: var(--radius-card); font-size: 30px; }
@@ -367,6 +365,7 @@
           <span id="projRoleBadge" class="role-badge role-viewer">👀 訪客</span>
           <span class="user-name" id="projUserName" style="font-size:11px; margin-top:3px; color:var(--sub-text);"></span>
         </div>
+        <select id="projThemeSelect" class="proj-theme-select" style="display:none;" title="切換專案配色（僅團主）" onchange="changeProjectTheme(this.value)"></select>
         <button class="btn-logout" style="background:var(--brand-light); color:var(--brand-main);" onclick="openMembersModal()">👥 團員</button>
       </div>
     </div>
@@ -469,11 +468,6 @@
       </div>
       <input type="hidden" id="newCoverIndex" value="-1">
       <div class="form-group">
-        <label class="form-label">配色主題</label>
-        <div id="newThemePicker" class="theme-picker"></div>
-        <input type="hidden" id="newThemeKey" value="teal">
-      </div>
-      <div class="form-group">
         <label class="form-label">縮圖樣式</label>
         <div id="newCoverPicker" class="cover-picker"></div>
       </div>
@@ -517,12 +511,6 @@
         <div id="editCurrencyDropdown" class="currency-dropdown"></div>
         <div id="editCurrencyChips" class="currency-chips"></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">配色主題</label>
-        <div id="editThemePicker" class="theme-picker"></div>
-        <input type="hidden" id="editThemeKey" value="teal">
-      </div>
-
       <div class="form-group">
         <label class="form-label">縮圖樣式</label>
         <div id="editCoverPicker" class="cover-picker"></div>
