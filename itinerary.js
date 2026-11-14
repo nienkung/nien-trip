@@ -58,18 +58,107 @@ async function mountSpotAutocomplete() {
   });
 }
 
+// ===== 縮圖：固定尺寸裁切 + 使用者調整露出位置 =====
+
+function clampPct(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 50;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
 window.updateSpotThumbPreview = function() {
   const thumbEl = document.getElementById('spotThumbUrl');
   const prev = document.getElementById('spotThumbPreview');
+  const adjust = document.getElementById('spotThumbAdjust');
   if (!thumbEl || !prev) return;
+
   const url = thumbEl.value.trim();
+  const xEl = document.getElementById('spotThumbX');
+  const yEl = document.getElementById('spotThumbY');
+  prev.style.objectPosition = `${clampPct(xEl ? xEl.value : 50)}% ${clampPct(yEl ? yEl.value : 50)}%`;
+
   if (url) {
-    prev.src = url;
+    if (prev.getAttribute('src') !== url) prev.src = url;
     prev.style.display = 'block';
+    if (adjust) adjust.style.display = 'block';
   } else {
+    prev.removeAttribute('src');
     prev.style.display = 'none';
+    if (adjust) adjust.style.display = 'none';
   }
 };
+
+// ===== 行程展開狀態：新增／刪除後保留原本開著的天數 =====
+
+window._itinProjId = null;
+window._itinOpen = null;
+
+function itinOpenState() {
+  if (window._itinProjId !== window.activeProjectId || !window._itinOpen) {
+    window._itinProjId = window.activeProjectId;
+    window._itinOpen = { D1: true }; // 切換專案時的預設：只開 D1
+  }
+  return window._itinOpen;
+}
+
+window.toggleItinDay = function(headerEl) {
+  const card = headerEl.parentElement;
+  card.classList.toggle('open');
+  itinOpenState()[card.dataset.day] = card.classList.contains('open');
+};
+
+function fmtNoteTime(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function spotCardHTML(dayKey, spot, spotIdx, canEdit) {
+  const mapHref = spot.mapUrl ? spot.mapUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title || '')}`;
+  const posX = clampPct(spot.thumbX);
+  const posY = clampPct(spot.thumbY);
+  return `
+    <div class="spot-card">
+      ${canEdit ? `
+      <div class="spot-actions">
+        <button class="btn-spot-edit" onclick="openSpotModal('${dayKey}', ${spotIdx})">✏️ 修改</button>
+        <button class="btn-spot-del" onclick="deleteSpot('${dayKey}', ${spotIdx})">🗑️ 刪除</button>
+      </div>` : ''}
+      ${spot.thumbUrl ? `<img class="spot-thumb" src="${window.escapeHtml(spot.thumbUrl)}" alt="" style="object-position:${posX}% ${posY}%" onerror="this.style.display='none'">` : ''}
+      ${spot.time ? `<span class="spot-time">⏰ ${window.escapeHtml(spot.time)}</span>` : ''}
+      <div class="spot-title">${window.escapeHtml(spot.title)}</div>
+      ${spot.desc ? `<div class="spot-desc">${window.escapeHtml(spot.desc)}</div>` : ''}
+      <div class="btn-group">
+        <a href="${window.escapeHtml(mapHref)}" target="_blank" class="map-btn">📍 地圖導航</a>
+      </div>
+    </div>`;
+}
+
+function prepNotesHTML(notes, canEdit) {
+  const list = Object.entries(notes || {})
+    .filter(([, n]) => n && typeof n === 'object')
+    .sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
+
+  const cards = list.map(([key, n]) => `
+    <div class="prep-note">
+      ${canEdit ? `
+      <div class="spot-actions">
+        <button class="btn-spot-edit" onclick="openPrepNoteModal('${key}')">✏️ 修改</button>
+        <button class="btn-spot-del" onclick="deletePrepNote('${key}')">🗑️ 刪除</button>
+      </div>` : ''}
+      <div class="prep-note-title">${window.escapeHtml(n.title || '（未命名）')}</div>
+      ${n.body ? `<div class="prep-note-body">${window.escapeHtml(n.body)}</div>` : ''}
+      <div class="prep-note-meta">✍️ ${window.escapeHtml(n.by || '團員')} · ${fmtNoteTime(n.updatedAt || n.createdAt)}</div>
+    </div>`).join('');
+
+  const empty = `<div style="font-size:13px; color:var(--sub-text); text-align:center; padding:12px;">${canEdit ? '還沒有備註，點上方按鈕新增（護照、機票、保險、住宿、要帶的東西⋯⋯都可以）。' : '團員新增備註後會顯示於此。'}</div>`;
+
+  const addBtn = canEdit ? `
+    <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+      <button class="btn-spot-edit" style="padding:6px 12px; font-size:12px; background:var(--brand-main); color:#fff;" onclick="openPrepNoteModal('')">➕ 新增備註</button>
+    </div>` : '';
+
+  return addBtn + (cards || empty);
+}
 
 // ===== 行程渲染 =====
 
@@ -77,53 +166,58 @@ window.renderItineraryFromJSON = function(data) {
   const container = document.getElementById('itineraryContainer');
   if (!container) return;
 
-  const daysList = window.getDynamicProjectDays(window.activeProjectData);
-  const canEdit = window.canEditContent(window.activeProjectData);
+  const proj = window.activeProjectData || {};
+  const sameProject = window._itinProjId === window.activeProjectId;
+  const scrollY = window.scrollY;
+
+  const daysList = window.getDynamicProjectDays(proj);
+  const canEdit = window.canEditContent(proj);
+  const openMap = itinOpenState();
   let html = '';
 
-  daysList.forEach((dayKey, idx) => {
-    const day = (data && data[dayKey]) ? data[dayKey] : { title: dayKey === 'D0' ? 'D0 (行前準備)' : `Day ${dayKey.replace('D','')}`, spots: [] };
+  daysList.forEach((dayKey) => {
+    const isPrep = dayKey === 'D0';
+    const day = (data && data[dayKey]) ? data[dayKey] : { title: `Day ${dayKey.replace('D', '')}`, spots: [] };
     const spots = day.spots || [];
+    const title = isPrep ? 'D0（行前注意備忘錄）' : (day.title || dayKey);
+    const subtitle = isPrep
+      ? `共 ${Object.keys(proj.prepNotes || {}).length} 則備註${spots.length ? `・${spots.length} 個舊景點` : ''}`
+      : `共 ${spots.length} 個景點/事項`;
+
+    let body = '';
+    if (isPrep) {
+      body += prepNotesHTML(proj.prepNotes, canEdit);
+      if (spots.length) {
+        body += spots.map((s, i) => spotCardHTML(dayKey, s, i, canEdit)).join('');
+      }
+    } else {
+      if (canEdit) {
+        body += `
+          <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+            <button class="btn-spot-edit" style="padding:6px 12px; font-size:12px; background:var(--brand-main); color:#fff;" onclick="openSpotModal('${dayKey}', -1)">➕ 新增景點</button>
+          </div>`;
+      }
+      body += spots.length > 0
+        ? spots.map((s, i) => spotCardHTML(dayKey, s, i, canEdit)).join('')
+        : `<div style="font-size:13px; color:var(--sub-text); text-align:center; padding:12px;">尚無景點，${canEdit ? '點擊上方按鈕新增！' : '團員新增後會顯示於此。'}</div>`;
+    }
 
     html += `
-      <div class="card ${idx === 1 || dayKey === 'D1' ? 'open' : ''}">
-        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="card ${openMap[dayKey] ? 'open' : ''}" data-day="${dayKey}">
+        <div class="card-header" onclick="toggleItinDay(this)">
           <div>
-            <div class="card-title">${window.escapeHtml(day.title || dayKey)}</div>
-            <div class="card-subtitle">共 ${spots.length} 個景點/事項</div>
+            <div class="card-title">${window.escapeHtml(title)}</div>
+            <div class="card-subtitle">${subtitle}</div>
           </div>
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
         </div>
-        <div class="card-content">
-          ${canEdit ? `
-          <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-            <button class="btn-spot-edit" style="padding:6px 12px; font-size:12px; background:var(--brand-main); color:#fff;" onclick="openSpotModal('${dayKey}', -1)">➕ 新增景點</button>
-          </div>` : ''}
-
-          ${spots.length > 0 ? spots.map((spot, spotIdx) => {
-            const mapHref = spot.mapUrl ? spot.mapUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title || '')}`;
-            return `
-            <div class="spot-card">
-              ${canEdit ? `
-              <div class="spot-actions">
-                <button class="btn-spot-edit" onclick="openSpotModal('${dayKey}', ${spotIdx})">✏️ 修改</button>
-                <button class="btn-spot-del" onclick="deleteSpot('${dayKey}', ${spotIdx})">🗑️ 刪除</button>
-              </div>` : ''}
-              ${spot.thumbUrl ? `<img class="spot-thumb" src="${window.escapeHtml(spot.thumbUrl)}" alt="" onerror="this.style.display='none'">` : ''}
-              ${spot.time ? `<span class="spot-time">⏰ ${window.escapeHtml(spot.time)}</span>` : ''}
-              <div class="spot-title">${window.escapeHtml(spot.title)}</div>
-              ${spot.desc ? `<div class="spot-desc">${window.escapeHtml(spot.desc)}</div>` : ''}
-              <div class="btn-group">
-                <a href="${window.escapeHtml(mapHref)}" target="_blank" class="map-btn">📍 地圖導航</a>
-              </div>
-            </div>
-          `;
-          }).join('') : '<div style="font-size:13px; color:var(--sub-text); text-align:center; padding:12px;">尚無景點，' + (canEdit ? '點擊上方按鈕新增！' : '團員新增後會顯示於此。') + '</div>'}
-        </div>
-      </div>
-    `;
+        <div class="card-content">${body}</div>
+      </div>`;
   });
+
   container.innerHTML = html;
+  // 同一個專案內的操作（新增／刪除／修改）保留捲動位置
+  if (sameProject) window.scrollTo(0, scrollY);
 };
 
 // ===== 景點新增 / 編輯彈窗 =====
@@ -140,23 +234,18 @@ window.openSpotModal = function(dayKey, index = -1) {
   const mapInput = document.getElementById('spotMapUrl');
   const thumbInput = document.getElementById('spotThumbUrl');
   const descInput = document.getElementById('spotDescInput');
+  const xInput = document.getElementById('spotThumbX');
+  const yInput = document.getElementById('spotThumbY');
 
-  if (index >= 0) {
-    modalTitle.innerText = "✏️ 編輯行程景點";
-    const currentSpot = window.activeProjectData.itinerary[dayKey].spots[index];
-    timeInput.value = currentSpot.time || '';
-    titleInput.value = currentSpot.title || '';
-    mapInput.value = currentSpot.mapUrl || '';
-    thumbInput.value = currentSpot.thumbUrl || '';
-    descInput.value = currentSpot.desc || '';
-  } else {
-    modalTitle.innerText = "📍 新增行程景點";
-    timeInput.value = '';
-    titleInput.value = '';
-    mapInput.value = '';
-    thumbInput.value = '';
-    descInput.value = '';
-  }
+  const spot = index >= 0 ? (window.activeProjectData.itinerary[dayKey].spots[index] || {}) : null;
+  modalTitle.innerText = spot ? '✏️ 編輯行程景點' : '📍 新增行程景點';
+  timeInput.value = spot ? (spot.time || '') : '';
+  titleInput.value = spot ? (spot.title || '') : '';
+  mapInput.value = spot ? (spot.mapUrl || '') : '';
+  thumbInput.value = spot ? (spot.thumbUrl || '') : '';
+  descInput.value = spot ? (spot.desc || '') : '';
+  xInput.value = clampPct(spot ? spot.thumbX : 50);
+  yInput.value = clampPct(spot ? spot.thumbY : 50);
 
   window.updateSpotThumbPreview();
 
@@ -196,6 +285,10 @@ window.saveSpotFromModal = function() {
   }
 
   const spotData = { time, title, mapUrl, thumbUrl, desc };
+  if (thumbUrl) {
+    spotData.thumbX = clampPct(document.getElementById('spotThumbX').value);
+    spotData.thumbY = clampPct(document.getElementById('spotThumbY').value);
+  }
 
   if (index >= 0) {
     window.activeProjectData.itinerary[dayKey].spots[index] = spotData;
@@ -230,6 +323,76 @@ window.deleteSpot = function(dayKey, index) {
         .catch(err => alert('刪除失敗：' + err.message));
     }
   }
+};
+
+// ===== 行前注意備忘錄（D0）：自由新增／編輯／刪除備註卡片 =====
+// 資料位置：projects/{id}/prepNotes/{key} = { title, body, by, createdAt, updatedAt }
+
+function genNoteKey() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+window.openPrepNoteModal = function(key) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
+  const notes = (window.activeProjectData && window.activeProjectData.prepNotes) || {};
+  const note = key && notes[key] ? notes[key] : null;
+
+  document.getElementById('prepNoteKey').value = note ? key : '';
+  document.getElementById('prepNoteModalTitle').innerText = note ? '✏️ 編輯備註' : '📝 新增備註';
+  document.getElementById('prepNoteTitle').value = note ? (note.title || '') : '';
+  document.getElementById('prepNoteBody').value = note ? (note.body || '') : '';
+  document.getElementById('prepNoteModal').style.display = 'flex';
+};
+
+window.closePrepNoteModal = function() {
+  const modal = document.getElementById('prepNoteModal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.savePrepNote = function() {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
+  if (!(window.dbSet && window.dbRef && window.db)) return alert('系統載入中，請稍後再試。');
+
+  const title = document.getElementById('prepNoteTitle').value.trim();
+  const body = document.getElementById('prepNoteBody').value.trim();
+  if (!title && !body) return alert('請輸入標題或內容！');
+
+  const proj = window.activeProjectData;
+  let key = document.getElementById('prepNoteKey').value;
+  const existing = key && proj.prepNotes ? proj.prepNotes[key] : null;
+  if (!key) key = genNoteKey();
+
+  const now = Date.now();
+  const note = {
+    title: title || '（未命名）',
+    body: body,
+    by: (window.currentUser && window.currentUser.name) || '團員',
+    createdAt: existing ? (existing.createdAt || now) : now,
+    updatedAt: now
+  };
+
+  window.dbSet(window.dbRef(window.db, `projects/${window.activeProjectId}/prepNotes/${key}`), note)
+    .then(() => {
+      if (!proj.prepNotes) proj.prepNotes = {};
+      proj.prepNotes[key] = note;
+      window.closePrepNoteModal();
+      window.renderItineraryFromJSON(proj.itinerary);
+    })
+    .catch(err => alert('儲存失敗：' + err.message));
+};
+
+window.deletePrepNote = function(key) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
+  if (!confirm('確定要刪除這則備註嗎？')) return;
+  if (!(window.dbRemove && window.dbRef && window.db)) return alert('系統載入中，請稍後再試。');
+
+  const proj = window.activeProjectData;
+  window.dbRemove(window.dbRef(window.db, `projects/${window.activeProjectId}/prepNotes/${key}`))
+    .then(() => {
+      if (proj.prepNotes) delete proj.prepNotes[key];
+      window.renderItineraryFromJSON(proj.itinerary);
+    })
+    .catch(err => alert('刪除失敗：' + err.message));
 };
 
 window.switchProjectTab = function(tabName) {
