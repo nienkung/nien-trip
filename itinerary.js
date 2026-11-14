@@ -157,14 +157,15 @@ function fmtNoteTime(ts) {
   return new Date(ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-// 景點卡片：有縮圖時左圖（1:1）右文字；沒有縮圖時只有文字
+// 景點卡片：左側為拖曳手柄（與卡片等高）；有縮圖時左圖（1:1）右文字
 function spotCardHTML(dayKey, spot, spotIdx, canEdit) {
   const mapHref = spot.mapUrl ? spot.mapUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title || '')}`;
   const posX = clampPct(spot.thumbX);
   const posY = clampPct(spot.thumbY);
   const hasThumb = !!spot.thumbUrl;
   return `
-    <div class="spot-card">
+    <div class="spot-card ${canEdit ? 'can-drag' : ''}">
+      ${canEdit ? `<span class="drag-handle" title="按住上下拖曳：調整順序，或拖到其他天">⠿</span>` : ''}
       <div class="spot-body ${hasThumb ? 'has-thumb' : ''}">
         ${hasThumb ? `
         <div class="spot-thumb-wrap">
@@ -181,7 +182,6 @@ function spotCardHTML(dayKey, spot, spotIdx, canEdit) {
       </div>
       ${canEdit ? `
       <div class="spot-actions">
-        <span class="drag-handle" title="按住上下拖曳可調整順序">⠿ 拖曳排序</span>
         <button class="btn-spot-edit" onclick="openSpotModal('${dayKey}', ${spotIdx})">✏️ 修改</button>
         <button class="btn-spot-del" onclick="deleteSpot('${dayKey}', ${spotIdx})">🗑️ 刪除</button>
       </div>` : ''}
@@ -277,81 +277,172 @@ window.renderItineraryFromJSON = function(data) {
   if (sameProject) window.scrollTo(0, scrollY);
 };
 
-// ===== 景點拖曳排序（同一天內上下拖曳）=====
+// ===== 景點拖曳排序：同一天上下調整，或拖到其他天 =====
+// 拖曳時會出現一張跟著手指走的「幽靈卡片」，原位置留下半透明占位；
+// 放開時才真正寫入資料庫。
 (function () {
-  const GAP = 12; // 與 .spot-card 之間的間距（須和 CSS 的 margin 相同）
+  const GAP = 12;    // 與 .spot-card 之間的間距（須與 CSS 的 margin-top 相同）
+  const EDGE = 90;   // 手指靠近視窗上下邊緣多少像素時自動捲動
   let st = null;
+
+  function clearShifts() {
+    document.querySelectorAll('.spot-card[style*="transform"]').forEach(c => { c.style.transform = ''; });
+    document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+  }
+
+  function shiftCard(c, px) {
+    c.style.transform = `translateY(${px}px)`;
+  }
+
+  // 依指標位置判斷目標：哪一天、插入到第幾張
+  function resolveTarget(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const dayCard = el && el.closest ? el.closest('.card[data-day]') : null;
+    if (!dayCard) return null;
+    const dayKey = dayCard.dataset.day;
+    if (dayKey === 'D0') return null; // D0 是備忘錄，不接收景點
+
+    const list = dayCard.querySelector('.spot-list');
+    if (!list || !dayCard.classList.contains('open')) {
+      // 收合中或沒有景點的天：放到最後
+      const it = window.activeProjectData.itinerary || {};
+      const count = (it[dayKey] && it[dayKey].spots) ? it[dayKey].spots.length : 0;
+      return { dayKey, dayCard, list: null, cards: [], index: count };
+    }
+
+    const cards = Array.from(list.querySelectorAll(':scope > .spot-card')).filter(c => c !== st.card);
+    let index = 0;
+    cards.forEach(c => {
+      const r = c.getBoundingClientRect();
+      if (r.top + r.height / 2 < y) index++;
+    });
+    return { dayKey, dayCard, list, cards, index };
+  }
+
+  function update(x, y) {
+    if (!st) return;
+    st.ghost.style.left = (x - st.offX) + 'px';
+    st.ghost.style.top = (y - st.offY) + 'px';
+
+    clearShifts();
+    const t = resolveTarget(x, y);
+    if (t && t.dayKey !== st.dayKey) t.dayCard.classList.add('drop-target');
+
+    // 來源：占位卡片之後的卡片往上補位（同一列表時由下方的規則一併處理）
+    if (!t || !t.list || t.list !== st.list) {
+      st.cards.forEach((c, i) => { if (i > st.from) shiftCard(c, -st.step); });
+    }
+
+    if (t && t.list) {
+      if (t.list === st.list) {
+        const to = t.index;
+        st.cards.forEach((c, i) => {
+          if (i === st.from) return;
+          if (st.from < to && i > st.from && i <= to) shiftCard(c, -st.step);
+          if (to < st.from && i >= to && i < st.from) shiftCard(c, st.step);
+        });
+      } else {
+        // 目標列表：在插入位置之後的卡片往下讓出空間
+        t.cards.forEach((c, j) => { if (j >= t.index) shiftCard(c, st.step); });
+      }
+    }
+
+    st.target = t;
+  }
 
   document.addEventListener('pointerdown', (e) => {
     const handle = e.target.closest && e.target.closest('.drag-handle');
     if (!handle) return;
     const list = handle.closest('.spot-list');
     if (!list || !window.canEditContent(window.activeProjectData)) return;
-    const cards = Array.from(list.querySelectorAll(':scope > .spot-card'));
     const card = handle.closest('.spot-card');
+    const cards = Array.from(list.querySelectorAll(':scope > .spot-card'));
     const from = cards.indexOf(card);
     if (from < 0) return;
+
     e.preventDefault();
     try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+
+    const rect = card.getBoundingClientRect();
+    const ghost = card.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.width = rect.width + 'px';
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top = rect.top + 'px';
+    document.body.appendChild(ghost);
+    card.classList.add('drag-placeholder');
+    document.body.classList.add('dragging-spot');
+
     st = {
       pid: e.pointerId,
       dayKey: list.dataset.day,
-      cards,
-      card,
-      from,
-      to: from,
-      startY: e.clientY,
-      mids: cards.map(c => { const r = c.getBoundingClientRect(); return r.top + r.height / 2; }),
-      step: card.getBoundingClientRect().height + GAP
+      list, cards, card, from,
+      ghost,
+      offX: e.clientX - rect.left,
+      offY: e.clientY - rect.top,
+      step: rect.height + GAP,
+      target: null,
+      x: e.clientX, y: e.clientY,
+      timer: null
     };
-    card.classList.add('dragging');
+    // 手指靠近邊緣時自動捲動（即使手指沒動也會持續捲）
+    st.timer = setInterval(() => {
+      if (!st) return;
+      let dy = 0;
+      if (st.y < EDGE) dy = -14;
+      else if (st.y > window.innerHeight - EDGE) dy = 14;
+      if (dy) { window.scrollBy(0, dy); update(st.x, st.y); }
+    }, 16);
   });
 
   document.addEventListener('pointermove', (e) => {
     if (!st || e.pointerId !== st.pid) return;
-    const dy = e.clientY - st.startY;
-    st.card.style.transform = `translateY(${dy}px)`;
-
-    // 目標位置 = 其他卡片中，中心點在拖曳中心之上的數量
-    const center = st.mids[st.from] + dy;
-    let to = 0;
-    st.mids.forEach((m, i) => { if (i !== st.from && m < center) to++; });
-    st.to = to;
-
-    // 其他卡片往上或往下讓位
-    st.cards.forEach((c, i) => {
-      if (i === st.from) return;
-      let shift = 0;
-      if (st.from < to && i > st.from && i <= to) shift = -st.step;
-      if (to < st.from && i >= to && i < st.from) shift = st.step;
-      c.style.transform = shift ? `translateY(${shift}px)` : '';
-    });
+    st.x = e.clientX;
+    st.y = e.clientY;
+    update(st.x, st.y);
   });
 
   const endDrag = (e) => {
     if (!st || e.pointerId !== st.pid) return;
     const s = st;
     st = null;
-    s.cards.forEach(c => { c.style.transform = ''; });
-    s.card.classList.remove('dragging');
-    if (e.type === 'pointerup' && s.to !== s.from) moveSpot(s.dayKey, s.from, s.to);
+    clearInterval(s.timer);
+    s.ghost.remove();
+    s.card.classList.remove('drag-placeholder');
+    document.body.classList.remove('dragging-spot');
+    clearShifts();
+
+    if (e.type !== 'pointerup' || !s.target) return;
+    const t = s.target;
+    if (t.dayKey === s.dayKey && t.index === s.from) return; // 位置沒變
+    moveSpotTo(s.dayKey, s.from, t.dayKey, t.index);
   };
   document.addEventListener('pointerup', endDrag);
   document.addEventListener('pointercancel', endDrag);
 })();
 
-function moveSpot(dayKey, from, to) {
+// 把景點從 fromDay 的 from 位置移到 toDay 的 to 位置（同一天或不同天皆可）
+function moveSpotTo(fromDay, from, toDay, to) {
   if (!window.canEditContent(window.activeProjectData)) return;
   const proj = window.activeProjectData;
-  const spots = proj.itinerary && proj.itinerary[dayKey] && proj.itinerary[dayKey].spots;
-  if (!spots || from < 0 || from >= spots.length) return;
+  const it = proj.itinerary || (proj.itinerary = {});
 
-  const [item] = spots.splice(from, 1);
-  spots.splice(to, 0, item);
-  window.renderItineraryFromJSON(proj.itinerary);
+  const src = it[fromDay] && it[fromDay].spots;
+  if (!src || from < 0 || from >= src.length) return;
+
+  if (!it[toDay]) it[toDay] = { title: toDay, spots: [] };
+  if (!it[toDay].spots) it[toDay].spots = [];
+
+  const [item] = src.splice(from, 1);
+  const dst = it[toDay].spots;
+  dst.splice(Math.max(0, Math.min(to, dst.length)), 0, item);
+
+  // 放入的那一天自動展開，讓使用者看到結果
+  itinOpenState()[toDay] = true;
+  window.renderItineraryFromJSON(it);
 
   if (window.dbSet && window.dbRef && window.db) {
-    window.dbSet(window.dbRef(window.db, `projects/${window.activeProjectId}/itinerary`), proj.itinerary)
+    window.dbSet(window.dbRef(window.db, `projects/${window.activeProjectId}/itinerary`), it)
       .catch(err => alert('排序儲存失敗：' + err.message));
   }
 }
