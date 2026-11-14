@@ -111,11 +111,9 @@ async function prepareReceiptFile(file) {
 }
 
 // 上傳一批檔案到某筆記帳底下，並寫入 expenses/{id}/receipts/{rid}
-async function uploadReceipts(expId, files) {
-  if (!receiptStorageReady()) throw new Error('發票上傳功能尚未設定（Firebase Storage）。');
+async function uploadOneReceipt(expId, file) {
   const pid = window.activeProjectId;
-
-  for (const file of files) {
+  {
     const prepared = await prepareReceiptFile(file);
     const rid = genReceiptId();
     const path = `receipts/${pid}/${expId}/${rid}.${prepared.ext}`;
@@ -141,6 +139,25 @@ async function uploadReceipts(expId, files) {
       if (!exp.receipts) exp.receipts = {};
       exp.receipts[rid] = rec;
     }
+  }
+}
+
+// 一次上傳多個檔案：每個檔案獨立處理，一個失敗不會影響其他檔案，最後回報結果
+async function uploadReceipts(expId, files) {
+  if (!receiptStorageReady()) throw new Error('發票上傳功能尚未設定（Firebase Storage）。');
+  const failed = [];
+  let okCount = 0;
+  for (const file of files) {
+    try {
+      await uploadOneReceipt(expId, file);
+      okCount++;
+    } catch (err) {
+      console.error('發票上傳失敗：', file.name, err);
+      failed.push(`${file.name}：${err && err.message ? err.message : err}`);
+    }
+  }
+  if (failed.length) {
+    throw new Error(`已上傳 ${okCount} 個，以下檔案未成功：\n` + failed.join('\n'));
   }
 }
 
