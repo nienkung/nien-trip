@@ -1,3 +1,12 @@
+// 重整前所在的頁面（同一分頁內有效）。必須在任何 switchView 之前讀取
+try {
+  window._savedView = JSON.parse(sessionStorage.getItem('nt_view') || 'null');
+} catch (e) {
+  window._savedView = null;
+}
+// 有邀請連結時不還原舊頁面，以邀請流程為準
+window._startedWithInvite = !!new URLSearchParams(window.location.search).get('invite');
+
 // 擷取邀請連結參數（?invite=專案ID），登入並載入專案後處理
 try {
   window.pendingInvite = new URLSearchParams(window.location.search).get('invite') || null;
@@ -103,6 +112,15 @@ window.initFirebaseProjectsSync = function() {
     }
     window.renderDashboardProjects();
     processPendingInvite();
+
+    if (!window._viewRestored) {
+      // 第一次拿到資料：回到重整前的頁面
+      window._viewRestored = true;
+      restoreViewState();
+    } else if (window._currentView === 'project') {
+      // 之後資料有變動（例如他人新增、或剛上傳的發票）：就地更新專案頁，不必重整
+      refreshOpenProject();
+    }
   });
 };
 
@@ -551,12 +569,54 @@ window.deleteProject = function(id) {
   }
 };
 
+// ===== 重整後回到原頁面 =====
+
+function restoreViewState() {
+  const s = window._savedView;
+  if (window._startedWithInvite || !s || s.view !== 'project' || !s.pid) return;
+  const proj = window.allProjects[s.pid];
+  if (!proj || !window.canEditContent(proj)) return; // 不是團員就留在大廳
+
+  window.enterProject(s.pid);
+  if (s.tab && typeof window.switchProjectTab === 'function') window.switchProjectTab(s.tab);
+}
+
+// 專案頁資料更新時，就地重畫（拖曳中不打斷）
+function refreshOpenProject() {
+  if (document.body.classList.contains('dragging-spot')) return;
+  if (!window.activeProjectData) return;
+
+  window.renderProjectHeader();
+  window.renderItineraryFromJSON(window.activeProjectData.itinerary);
+  window.renderExpenses();
+  window.renderSettlement();
+
+  const expModal = document.getElementById('editExpenseModal');
+  if (expModal && expModal.style.display === 'flex' && window.renderEditReceipts) {
+    window.renderEditReceipts(document.getElementById('editExpId').value);
+  }
+}
+
 // ===== 進入 / 離開專案 =====
 
 window.enterProject = function(projectId) {
+  const target = window.allProjects[projectId];
+  if (!target) return;
+
+  // 訪客（非團員）一律不能進入專案內頁；只能送出申請，等團主同意
+  if (!window.canEditContent(target)) {
+    if (typeof window.requestJoinProject === 'function' && window.currentUser) {
+      if (confirm('這是別人的旅程，需要團主同意後才能進入。要送出加入申請嗎？')) {
+        window.requestJoinProject(projectId);
+      }
+    } else {
+      alert('這是別人的旅程，需要團主同意後才能進入。');
+    }
+    return;
+  }
+
   window.activeProjectId = projectId;
-  window.activeProjectData = window.allProjects[projectId];
-  if (!window.activeProjectData) return;
+  window.activeProjectData = target;
 
   const titleElem = document.getElementById('activeProjectTitle');
   if (titleElem) titleElem.innerText = window.activeProjectData.title;

@@ -131,15 +131,38 @@
     .card.open .card-content { display: block; }
     .spot-card { background: #FFFFFF; border: 1px solid var(--brand-border); border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; }
     .spot-time { display: inline-block; background: #E6FFFA; color: var(--brand-main); font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--brand-border); }
-    .spot-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); padding-right: 70px; }
+    .spot-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); }
     .spot-desc { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.5; white-space: pre-line; }
-    .spot-thumb { width: 100%; height: 150px; object-fit: cover; border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--brand-border); }
-    .spot-thumb-preview { width: 100%; max-height: 160px; object-fit: cover; border-radius: 10px; margin-top: 8px; border: 1px solid var(--brand-border); }
+    .spot-card { transition: transform 0.18s ease; }
+    .spot-card.dragging { transition: none; z-index: 5; box-shadow: 0 10px 24px rgba(0,0,0,0.18); }
+    .spot-body.has-thumb { display: grid; grid-template-columns: 42% 1fr; gap: 12px; align-items: start; }
+    .spot-thumb-wrap { min-width: 0; }
+    .spot-thumb { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 12px; border: 1px solid var(--brand-border); display: block; margin: 0; }
+    .spot-text { min-width: 0; }
+    .spot-text .btn-group { margin-top: 8px; }
+    .spot-card.can-drag { padding: 40px 14px 14px 38px; }
+    .drag-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 28px; display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; color: var(--brand-main); background: var(--brand-light); border-right: 1px solid var(--brand-border); border-radius: 14px 0 0 14px; cursor: grab; touch-action: none; user-select: none; }
+    .drag-ghost { position: fixed; z-index: 1000; pointer-events: none; margin: 0 !important; width: auto; box-shadow: 0 12px 28px rgba(0,0,0,0.2); opacity: 0.95; transition: none !important; }
+    .drag-placeholder { opacity: 0.35; outline: 2px dashed var(--brand-main); outline-offset: -2px; }
+    body.dragging-spot * { transition: none !important; }
+    .card.drop-target { outline: 2px dashed var(--brand-main); outline-offset: -4px; }
+    .thumb-drag { position: relative; width: 100%; max-width: 220px; aspect-ratio: 1 / 1; margin: 8px auto 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--brand-border); background: #EDF2F7; touch-action: none; cursor: grab; user-select: none; }
+    .thumb-drag.dragging { cursor: grabbing; }
+    .thumb-drag img { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; object-fit: cover; pointer-events: none; border: none; border-radius: 0; display: block; }
+    .spot-thumb-preview { width: 100%; height: 130px; object-fit: cover; border-radius: 10px; margin-top: 8px; border: 1px solid var(--brand-border); display: block; }
+    .thumb-adjust { margin-top: 10px; padding: 10px 12px; background: var(--brand-light); border-radius: 10px; border: 1px solid var(--brand-border); }
+    .thumb-adjust-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--brand-dark); margin-top: 4px; }
+    .thumb-adjust-row input { flex: 1; accent-color: var(--brand-main); }
+    .prep-note { background: #FFFFFF; border: 1px solid var(--brand-border); border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; }
+    .prep-note-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); }
+    .prep-note.can-edit { padding-top: 40px; }
+    .prep-note-body { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .prep-note-meta { font-size: 11px; color: var(--sub-text); margin-top: 8px; }
     .gmp-wrap { width: 100%; }
     .gmp-wrap gmp-place-autocomplete { width: 100%; }
     .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     .map-btn { display: inline-flex; align-items: center; gap: 5px; background: var(--brand-main); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; }
-    .spot-actions { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
+    .spot-actions { position: absolute; top: 8px; right: 8px; display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
     .btn-spot-edit, .btn-spot-del { border: none; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .btn-spot-edit { background: var(--brand-light); color: var(--brand-main); border: 1px solid var(--brand-border); }
     .btn-spot-del { background: #FFF5F5; color: var(--danger); border: 1px solid #FEB2B2; }
@@ -147,7 +170,19 @@
     .form-label { font-size: 13px; font-weight: 700; color: var(--brand-dark); margin-bottom: 4px; display: block; }
     .form-control { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--brand-border); font-size: 15px; font-weight: 600; outline: none; background: #FFF; }
     .btn-submit { width: 100%; background: var(--brand-main); color: #FFF; padding: 12px; border: none; border-radius: 12px; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(0, 168, 150, 0.3); margin-top: 6px; }
-    .expense-item { background: #FFF; border: 1px solid var(--brand-border); border-radius: 12px; padding: 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .expense-item { position: relative; background: #FFF; border: 1px solid var(--brand-border); border-radius: 12px; padding: 12px; margin-top: 10px; }
+    .expense-item.can-drag { padding: 40px 12px 12px 38px; }
+    .expense-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+    .expense-body { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .no-items { font-size: 13px; color: var(--sub-text); text-align: center; padding: 8px; }
+    .receipt-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .receipt-thumb-sm { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--brand-border); display: block; }
+    .receipt-file-sm { font-size: 12px; font-weight: 700; color: var(--brand-main); background: var(--brand-light); padding: 4px 8px; border-radius: 8px; text-decoration: none; }
+    .receipt-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--brand-border); }
+    .receipt-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid var(--brand-border); }
+    .receipt-pdf { font-size: 26px; width: 48px; text-align: center; }
+    .receipt-name { flex: 1; font-size: 13px; font-weight: 700; color: var(--brand-main); word-break: break-all; }
+    .receipt-empty { font-size: 12px; color: var(--sub-text); padding: 6px 0; }
     .expense-info { flex: 1; }
     .expense-title { font-size: 15px; font-weight: 800; color: var(--brand-dark); }
     .expense-meta { font-size: 12px; color: var(--sub-text); margin-top: 2px; font-weight: 600; }
@@ -252,7 +287,6 @@
         <button id="authSubmitBtn" class="btn-submit" onclick="authSubmit()">登入</button>
         <div style="display:flex; justify-content:space-between; margin-top:12px; font-size:13px;">
           <a href="javascript:void(0)" onclick="authForgotPassword()" style="color:var(--brand-main); font-weight:700;">忘記密碼</a>
-          <a href="javascript:void(0)" onclick="openForgotUser()" style="color:var(--brand-main); font-weight:700;">忘記帳號</a>
         </div>
         <p id="authMsg" style="font-size:13px; margin-top:12px; min-height:18px; text-align:center;"></p>
         <!-- Google 登入（已隱藏，程式碼保留） -->
@@ -372,6 +406,10 @@
                 <div class="form-group">
                   <label class="form-label">參與分帳成員 (可多選)</label>
                   <div id="expParticipantsBox" class="checkbox-group"></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">📎 發票／收據（選填，可多張，圖片或 PDF）</label>
+                  <input type="file" id="expReceiptInput" class="form-control" accept="image/*,application/pdf" multiple>
                 </div>
                 <button type="submit" class="btn-submit">新增記帳</button>
               </form>
@@ -511,13 +549,40 @@
       <div class="form-group">
         <label class="form-label">縮圖連結</label>
         <input type="text" id="spotThumbUrl" class="form-control" placeholder="圖片網址（選填）" oninput="updateSpotThumbPreview()">
-        <img id="spotThumbPreview" class="spot-thumb-preview" alt="" style="display:none;" onerror="this.style.display='none'">
+        <div id="spotThumbAdjust" class="thumb-adjust" style="display:none;">
+          <div style="font-size:12px; color:var(--sub-text); margin-bottom:4px; text-align:center;">👆 在圖片上按住拖曳，調整要露出的位置（會裁成 1:1 方形）</div>
+          <div id="spotThumbDrag" class="thumb-drag">
+            <img id="spotThumbPreview" alt="" style="display:none;" onerror="this.style.display='none'">
+          </div>
+          <input type="hidden" id="spotThumbX" value="50">
+          <input type="hidden" id="spotThumbY" value="50">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">詳細說明 / 筆記</label>
         <textarea id="spotDescInput" class="form-control" rows="4" placeholder="門票資訊、交通方式、必買伴手禮..."></textarea>
       </div>
       <button class="btn-submit" onclick="saveSpotFromModal()">儲存景點</button>
+    </div>
+  </div>
+
+  <!-- 行前注意備忘錄（D0）：新增／編輯備註卡片 -->
+  <div id="prepNoteModal" class="modal-mask">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:17px; font-weight:800;" id="prepNoteModalTitle">📝 新增備註</h3>
+        <button onclick="closePrepNoteModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+      <input type="hidden" id="prepNoteKey" value="">
+      <div class="form-group">
+        <label class="form-label">標題（例如：護照、機票、保險、住宿地址）</label>
+        <input type="text" id="prepNoteTitle" class="form-control" placeholder="例如：機票資訊">
+      </div>
+      <div class="form-group">
+        <label class="form-label">內容（可自由輸入，換行會保留）</label>
+        <textarea id="prepNoteBody" class="form-control" rows="8" placeholder="航班號碼、訂位代號、要帶的東西、注意事項..."></textarea>
+      </div>
+      <button class="btn-submit" onclick="savePrepNote()">儲存備註</button>
     </div>
   </div>
 
@@ -551,6 +616,12 @@
       <div class="form-group">
         <label class="form-label">參與分帳成員</label>
         <div id="editExpParticipantsBox" class="checkbox-group"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">📎 發票／收據</label>
+        <div id="editExpReceipts"></div>
+        <input type="file" id="editExpReceiptInput" class="form-control" accept="image/*,application/pdf" multiple onchange="addReceiptsToExpense()" style="margin-top:8px;">
+        <p style="font-size:11px; color:var(--sub-text); margin-top:4px;">選擇檔案後會自動上傳（圖片會先自動縮小）。</p>
       </div>
       <button class="btn-submit" onclick="submitUpdateExpense()">儲存修改</button>
     </div>
@@ -586,19 +657,6 @@
     </div>
   </div>
 
-  <!-- 忘記帳號 -->
-  <div id="forgotUserModal" class="modal-mask">
-    <div class="modal-box" style="max-width:420px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 style="font-size:17px; font-weight:800;">🔎 忘記帳號</h3>
-        <button onclick="closeForgotUser()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
-      </div>
-      <label class="form-label">輸入註冊時的名字，會列出對應的 Email（遮蔽部分字元）</label>
-      <input type="text" id="forgotUserName" class="form-control" placeholder="例如：小明">
-      <button class="btn-submit" style="margin-top:10px;" onclick="forgotUserSearch()">查詢</button>
-      <div id="forgotUserResult" style="font-size:14px; margin-top:12px; line-height:1.8;"></div>
-    </div>
-  </div>
 
   <!-- 會員專區 -->
   <div id="memberZoneModal" class="modal-mask">
@@ -665,15 +723,16 @@
     });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261115b"></script>
-  <script src="./app-state.js?v=20261115b"></script>
-  <script src="./dashboard.js?v=20261115b"></script>
-  <script src="./auth.js?v=20261115b"></script>
-  <script src="./members.js?v=20261115b"></script>
-  <script src="./join.js?v=20261115b"></script>
-  <script src="./identity.js?v=20261115b"></script>
-  <script src="./itinerary.js?v=20261115b"></script>
-  <script src="./expenses.js?v=20261115b"></script>
-  <script src="./ai-importer.js?v=20261115b"></script>
+  <script type="module" src="./firebase-config.js?v=20261115h"></script>
+  <script src="./app-state.js?v=20261115h"></script>
+  <script src="./dashboard.js?v=20261115h"></script>
+  <script src="./auth.js?v=20261115h"></script>
+  <script src="./members.js?v=20261115h"></script>
+  <script src="./join.js?v=20261115h"></script>
+  <script src="./identity.js?v=20261115h"></script>
+  <script src="./drag-sort.js?v=20261115h"></script>
+  <script src="./itinerary.js?v=20261115h"></script>
+  <script src="./expenses.js?v=20261115h"></script>
+  <script src="./ai-importer.js?v=20261115h"></script>
 </body>
 </html>
