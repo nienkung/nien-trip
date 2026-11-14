@@ -28,15 +28,15 @@ const PROD_CONFIG = {
   measurementId: "G-L7BC11Q0NG"
 };
 
-// 測試站（待填：請貼上測試專案的設定）
+// 測試站（nien-trip-test 專案）
 const TEST_CONFIG = {
-  apiKey: "請貼上",
-  authDomain: "請貼上",
-  databaseURL: "請貼上",
-  projectId: "請貼上",
-  storageBucket: "請貼上",
-  messagingSenderId: "請貼上",
-  appId: "請貼上"
+  apiKey: "AIzaSyA6poX8iQye3hiWynmMb0mHrgsbbkBFK7Q",
+  authDomain: "nien-trip-test.firebaseapp.com",
+  databaseURL: "https://nien-trip-test-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nien-trip-test",
+  storageBucket: "nien-trip-test.firebasestorage.app",
+  messagingSenderId: "498296274393",
+  appId: "1:498296274393:web:87fea48bbb17516ed2edc8"
 };
 
 const IS_PROD = window.location.hostname === PROD_HOST;
