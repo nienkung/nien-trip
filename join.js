@@ -1,6 +1,7 @@
-// 申請加入（app 內審核）：訪客可向團主申請加入專案，團主在 app 內同意或拒絕
-// 需在 dashboard.js、members.js 之後載入（會包裝它們的渲染函式，不改動原檔）
-// 申請紀錄存於 projects/{id}/joinRequests/{uid} = { name, email, at }
+// 申請加入（app 內審核）：訪客送出申請，團主在 app 內同意或拒絕
+// 第二階段：申請以 uid 記錄，不再存 email
+// 需在 dashboard.js、members.js 之後載入；identity.js 需在本檔之後載入（提供 addMemberByUid）
+// 申請紀錄：projects/{id}/joinRequests/{uid} = { name, uid, at }
 
 (function () {
   function requestsOf(proj) {
@@ -16,20 +17,21 @@
 
   const BTN_STYLE = 'margin-top:6px; background:var(--brand-main); color:#fff; border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;';
   const BTN_PENDING_STYLE = 'margin-top:6px; background:#CBD5E0; color:#4A5568; border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; cursor:default;';
+  const BTN_REJECT_STYLE = 'margin-top:6px; background:#FFF5F5; color:#E53E3E; border:1px solid #FEB2B2; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;';
 
   // 訪客送出申請
   window.requestJoinProject = function (projectId, ev) {
     if (ev) ev.stopPropagation();
     const proj = window.allProjects[projectId];
     if (!proj) return alert('找不到這個專案。');
-    if (!window.currentUser) return alert('請先登入。');
+    if (!window.currentUser || !window.currentUser.uid) return alert('請先登入。');
     if (window.isTeamMember(proj)) return alert('你已經是這個專案的團員了。');
     if (myRequestPending(proj)) return alert('你已送出申請，請等待團主審核。');
     if (!window.dbSet || !window.dbRef || !window.db) return alert('系統載入中，請稍後再試。');
 
     const req = {
       name: window.currentUser.name || '新成員',
-      email: window.currentUser.email || '',
+      uid: window.currentUser.uid,
       at: Date.now()
     };
     window.dbSet(window.dbRef(window.db, `projects/${projectId}/joinRequests/${window.currentUser.uid}`), req)
@@ -37,22 +39,17 @@
       .catch(err => alert('申請失敗：' + err.message));
   };
 
-  // 團主同意：加入團員名單，並移除申請
+  // 團主同意：加入團員（以 uid），再移除申請
   window.approveJoinRequest = function (projectId, uid) {
     const proj = window.allProjects[projectId];
     if (!proj || !window.canManageMembers(proj)) return alert('只有團主可以審核申請。');
     const req = requestsOf(proj)[uid];
     if (!req) return alert('這筆申請已不存在。');
-    if (!window.dbUpdate || !window.dbRef || !window.db) return alert('系統載入中，請稍後再試。');
+    if (!req.uid) return alert('這是舊版格式的申請，請對方重新申請（或直接拒絕）。');
+    if (!window.addMemberByUid) return alert('系統載入中，請稍後再試。');
 
-    const members = window.getMembers(proj).slice();
-    const already = members.some(m => m.email && req.email && m.email.toLowerCase() === req.email.toLowerCase());
-    if (!already) members.push({ name: req.name || '新成員', email: req.email || '' });
-
-    const updates = {};
-    updates.members = members;
-    updates['joinRequests/' + uid] = null; // 在 RTDB update 中設為 null 即刪除
-    window.dbUpdate(window.dbRef(window.db, `projects/${projectId}`), updates)
+    window.addMemberByUid(projectId, proj, req.uid, req.name || '新成員')
+      .then(() => window.dbRemove(window.dbRef(window.db, `projects/${projectId}/joinRequests/${uid}`)))
       .then(() => alert(`✅ 已同意 ${req.name || '新成員'} 加入！`))
       .catch(err => alert('同意失敗：' + err.message));
   };
@@ -118,7 +115,7 @@
             <div class="mem-row-main"><span class="mem-name">${window.escapeHtml(r.name || '新成員')}</span></div>
             <div class="mem-row-side">
               <button style="${BTN_STYLE}" onclick="approveJoinRequest('${pid}','${uid}')">同意</button>
-              <button style="${BTN_PENDING_STYLE.replace('#CBD5E0', '#D9534F').replace('#4A5568', '#fff').replace('cursor:default', 'cursor:pointer')}" onclick="rejectJoinRequest('${pid}','${uid}')">拒絕</button>
+              <button style="${BTN_REJECT_STYLE}" onclick="rejectJoinRequest('${pid}','${uid}')">拒絕</button>
             </div>
           </div>`;
       });
