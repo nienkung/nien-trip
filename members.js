@@ -1,4 +1,6 @@
-// 團員管理彈窗：所有人可看名單（不顯示 email）；團員可改自己暱稱；團主/管理員可完整編輯
+// 團員管理彈窗（第二階段）：團員以 uid 辨識；名單不顯示 email
+// 團主新增團員時只填暱稱（未綁定），對方透過邀請連結或申請加入後會自動認領同名的未綁定團員。
+// 舊資料的 email 僅保留在資料中，供登入後自動綁定使用（第三階段再清除）。
 
 window.openMembersModal = function() {
   if (!window.activeProjectData) return alert('請先進入專案！');
@@ -26,12 +28,14 @@ window.copyInviteLink = async function() {
   }
 };
 
-function roleBadgeFor(proj, member) {
-  // 團主：ownerEmail 或 ownerName 相符
-  const isOwner = (proj.ownerEmail && member.email && proj.ownerEmail.toLowerCase() === member.email.toLowerCase())
-    || (proj.ownerName && member.name === proj.ownerName);
-  if (isOwner) return `<span class="role-badge role-owner">👑 團主</span>`;
-  if (member.email) return `<span class="role-badge role-member">👥 團員</span>`;
+function membersEsc(s) {
+  return window.escapeHtml(s == null ? '' : s);
+}
+
+function roleBadgeFor(proj, m) {
+  if (m.uid && proj.ownerUid && m.uid === proj.ownerUid) return `<span class="role-badge role-owner">👑 團主</span>`;
+  if (m.uid) return `<span class="role-badge role-member">👥 團員</span>`;
+  if (m.email) return `<span class="role-badge role-viewer">⏳ 待登入綁定</span>`;
   return `<span class="role-badge role-viewer">✉️ 未綁定</span>`;
 }
 
@@ -43,7 +47,9 @@ window.renderMembersModal = function() {
   const canManage = window.canManageMembers(proj);
   const members = window.getMembers(proj);
   const externals = window.getExternalPeople(proj);
-  const myEmail = (window.currentUser && window.currentUser.email || '').toLowerCase();
+
+  // 團主編輯時用來對照原始資料（避免把 email 放進 DOM）
+  window._membersSnapshot = members;
 
   let html = '';
 
@@ -56,29 +62,26 @@ window.renderMembersModal = function() {
   html += `<div class="mem-section-label">👥 團員（可登入協作）</div>`;
 
   if (canManage) {
-    // 管理者：可編輯每一列（email 不顯示，留空即保留原綁定）
     html += `<div id="memberEditList">`;
     members.forEach((m, i) => {
       html += memberEditRow(i, m);
     });
     html += `</div>`;
-    html += `<button class="mem-add-btn" onclick="addMemberRow()">➕ 新增團員</button>`;
+    html += `<button class="mem-add-btn" onclick="addMemberRow()">➕ 新增團員（只填暱稱，對方加入後會自動綁定）</button>`;
   } else {
-    // 一般團員 / 訪客：唯讀（不顯示任何 email），但自己那列的暱稱可改
     members.forEach(m => {
-      const isMe = m.email && m.email.toLowerCase() === myEmail;
+      const isMe = window.isMemberMe(m);
       html += `
         <div class="mem-row">
           <div class="mem-row-main">
             ${isMe
-              ? `<input type="text" class="form-control mem-self-input" id="memSelfName" value="${window.escapeHtml(m.name)}" placeholder="你的暱稱">`
-              : `<span class="mem-name">${window.escapeHtml(m.name)}</span>`}
+              ? `<input type="text" class="form-control mem-self-input" id="memSelfName" value="${membersEsc(m.name)}" placeholder="你的暱稱">`
+              : `<span class="mem-name">${membersEsc(m.name)}</span>`}
           </div>
           <div class="mem-row-side">${roleBadgeFor(proj, m)}${isMe ? '<span class="mem-you">你</span>' : ''}</div>
         </div>`;
     });
-    // 自己是團員 → 顯示儲存暱稱按鈕
-    const iAmMember = members.some(m => m.email && m.email.toLowerCase() === myEmail);
+    const iAmMember = members.some(m => window.isMemberMe(m));
     if (iAmMember) {
       html += `<button class="mem-add-btn" onclick="saveMyNickname()">💾 儲存我的暱稱</button>`;
     }
@@ -96,7 +99,7 @@ window.renderMembersModal = function() {
   } else {
     if (externals.length) {
       externals.forEach(name => {
-        html += `<div class="mem-row"><div class="mem-row-main"><span class="mem-name">${window.escapeHtml(name)}</span></div><div class="mem-row-side"><span class="role-badge role-viewer">🧾 外部</span></div></div>`;
+        html += `<div class="mem-row"><div class="mem-row-main"><span class="mem-name">${membersEsc(name)}</span></div><div class="mem-row-side"><span class="role-badge role-viewer">🧾 外部</span></div></div>`;
       });
     } else {
       html += `<div class="mem-empty">目前沒有外部分帳人</div>`;
@@ -110,14 +113,14 @@ window.renderMembersModal = function() {
   body.innerHTML = html;
 };
 
-// 團主編輯列：不顯示既有 email；原 email 存在 data-email，輸入框留空即保留原綁定
-function memberEditRow(i, m) {
-  const bound = !!(m && m.email);
-  const placeholder = bound ? '✅ 已綁定帳號（留空保留，填入可更換）' : 'email（填了才能登入編輯）';
+// 團主編輯列：只顯示暱稱與綁定狀態；idx 為 null 代表新增列
+function memberEditRow(idx, m) {
+  const status = m.uid ? '✅ 已綁定' : (m.email ? '⏳ 待登入綁定' : '未綁定');
+  const idxAttr = idx === null ? '' : ` data-idx="${idx}"`;
   return `
-    <div class="mem-edit-row" data-idx="${i}" data-email="${window.escapeHtml((m && m.email) || '')}">
-      <input type="text" class="form-control mem-in-name" value="${window.escapeHtml(m ? m.name : '')}" placeholder="暱稱">
-      <input type="email" class="form-control mem-in-email" value="" placeholder="${placeholder}">
+    <div class="mem-edit-row"${idxAttr}>
+      <input type="text" class="form-control mem-in-name" value="${membersEsc(m ? m.name : '')}" placeholder="暱稱">
+      <span class="mem-bind-status" style="font-size:11px; color:var(--sub-text); white-space:nowrap;">${status}</span>
       <button class="mem-del-btn" onclick="this.closest('.mem-edit-row').remove()">🗑️</button>
     </div>`;
 }
@@ -125,7 +128,7 @@ function memberEditRow(i, m) {
 function externalEditRow(i, name) {
   return `
     <div class="ext-edit-row" data-idx="${i}">
-      <input type="text" class="form-control ext-in-name" value="${window.escapeHtml(name)}" placeholder="外部分帳人暱稱">
+      <input type="text" class="form-control ext-in-name" value="${membersEsc(name)}" placeholder="外部分帳人暱稱">
       <button class="mem-del-btn" onclick="this.closest('.ext-edit-row').remove()">🗑️</button>
     </div>`;
 }
@@ -134,7 +137,7 @@ window.addMemberRow = function() {
   const list = document.getElementById('memberEditList');
   if (!list) return;
   const div = document.createElement('div');
-  div.innerHTML = memberEditRow(list.children.length, { name: '', email: '' });
+  div.innerHTML = memberEditRow(null, { name: '' });
   list.appendChild(div.firstElementChild);
 };
 
@@ -146,7 +149,7 @@ window.addExternalRow = function() {
   list.appendChild(div.firstElementChild);
 };
 
-// 一般團員：只改自己的暱稱
+// 一般團員：只改自己的暱稱（以 uid 找到自己）
 window.saveMyNickname = function() {
   const input = document.getElementById('memSelfName');
   if (!input) return;
@@ -154,9 +157,8 @@ window.saveMyNickname = function() {
   if (!newName) return alert('暱稱不能空白！');
 
   const proj = window.activeProjectData;
-  const myEmail = (window.currentUser && window.currentUser.email || '').toLowerCase();
   const members = window.getMembers(proj);
-  const idx = members.findIndex(m => m.email && m.email.toLowerCase() === myEmail);
+  const idx = members.findIndex(m => window.isMemberMe(m));
   if (idx < 0) return alert('找不到你的團員身份。');
 
   members[idx].name = newName;
@@ -174,18 +176,22 @@ window.saveMyNickname = function() {
   }
 };
 
-// 團主 / 管理員：整批儲存團員與外部分帳人
+// 團主 / 管理員：整批儲存團員與外部分帳人（uid 與舊 email 依原列對照保留）
 window.saveMembers = function() {
   const proj = window.activeProjectData;
   if (!window.canManageMembers(proj)) return alert('你沒有權限管理團員。');
 
+  const snap = window._membersSnapshot || [];
   const members = [];
   document.querySelectorAll('#memberEditList .mem-edit-row').forEach(row => {
     const name = row.querySelector('.mem-in-name').value.trim();
-    // 輸入框留空 → 沿用原本綁定的 email（畫面不顯示，但資料不會被清掉）
-    const typed = row.querySelector('.mem-in-email').value.trim();
-    const email = typed || row.dataset.email || '';
-    if (name) members.push({ name, email });
+    if (!name) return;
+    const idxAttr = row.getAttribute('data-idx');
+    const orig = idxAttr !== null ? snap[Number(idxAttr)] : null;
+    const m = { name: name };
+    if (orig && orig.uid) m.uid = orig.uid;
+    if (orig && orig.email) m.email = orig.email;
+    members.push(m);
   });
 
   const externalPeople = [];
@@ -196,28 +202,13 @@ window.saveMembers = function() {
 
   if (members.length === 0) return alert('至少要保留一位團員！');
 
-  // 檢查 email 格式（只檢查有新輸入的；原有綁定不再重複檢查）
-  const badInput = Array.from(document.querySelectorAll('#memberEditList .mem-in-email'))
-    .map(el => el.value.trim())
-    .find(v => v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
-  if (badInput) return alert(`email 格式有誤：${badInput}`);
-
-  const updates = { members, externalPeople };
-
-  // 若團主自己沒綁 ownerEmail，順手補上
-  if (!proj.ownerEmail && window.isProjectOwner(proj) && window.currentUser && window.currentUser.email) {
-    updates.ownerEmail = window.currentUser.email;
-  }
-
   if (window.dbUpdate && window.dbRef && window.db) {
-    window.dbUpdate(window.dbRef(window.db, `projects/${window.activeProjectId}`), updates)
+    window.dbUpdate(window.dbRef(window.db, `projects/${window.activeProjectId}`), { members, externalPeople })
       .then(() => {
         window.activeProjectData.members = members;
         window.activeProjectData.externalPeople = externalPeople;
-        if (updates.ownerEmail) window.activeProjectData.ownerEmail = updates.ownerEmail;
         alert('✅ 團員設定已儲存！');
         window.closeMembersModal();
-        // 連動刷新記帳表單（分帳勾選、付款人）與結算
         if (window.updateExpenseFormOptions) window.updateExpenseFormOptions();
         if (window.renderExpenses) window.renderExpenses();
         if (window.renderSettlement) window.renderSettlement();
