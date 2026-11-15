@@ -70,6 +70,13 @@ window.getProjectCurrencies = function(proj) {
   return ['JPY', 'TWD', 'USD', 'EUR'];
 };
 
+// 專案的主要記帳幣別（新增記帳時的預設幣別）；未設定或不在清單中時，取幣別清單第一個
+window.getProjectMainCurrency = function(proj) {
+  const list = window.getProjectCurrencies(proj);
+  if (proj && proj.mainCurrency && list.includes(proj.mainCurrency)) return proj.mainCurrency;
+  return list[0] || 'TWD';
+};
+
 // 載入即時匯率（後端每日快取代理 /api/rates），失敗則沿用備援值
 window.ratesUpdatedAt = null;
 window.loadLiveRates = async function() {
