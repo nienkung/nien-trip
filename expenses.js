@@ -245,6 +245,15 @@ window.toggleExpDay = function(headerEl) {
   expOpenMap()[card.dataset.day] = card.classList.contains('open');
 };
 
+// 全部展開 / 全部收合所有天數
+window.setAllExpDays = function(open) {
+  if (!window.activeProjectData) return;
+  const daysList = window.getDynamicProjectDays(window.activeProjectData);
+  const map = expOpenMap();
+  daysList.forEach(d => { map[d] = !!open; });
+  window.renderExpenses();
+};
+
 // 同一天內的排序：有 order 的依 order；沒有的依建立時間放在後面
 function sortedExpenseIds(dayKey) {
   const all = (window.activeProjectData && window.activeProjectData.expenses) || {};
