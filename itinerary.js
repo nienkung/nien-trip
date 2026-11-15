@@ -152,9 +152,32 @@ window.toggleItinDay = function(headerEl) {
   itinOpenState()[card.dataset.day] = card.classList.contains('open');
 };
 
+// 全部展開 / 全部收合所有天數
+window.setAllItinDays = function(open) {
+  const proj = window.activeProjectData || {};
+  const daysList = window.getDynamicProjectDays(proj);
+  const map = itinOpenState();
+  daysList.forEach(d => { map[d] = !!open; });
+  window.renderItineraryFromJSON(proj.itinerary || {});
+};
+
 function fmtNoteTime(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// 把說明文字裡的網址轉成可點擊的超連結（先 escape 再處理，避免 XSS）
+function linkifyText(text) {
+  const escaped = window.escapeHtml(text == null ? '' : String(text));
+  return escaped.replace(/(https?:\/\/[^\s]+)/g, (m) => {
+    let url = m;
+    let trail = '';
+    // 去掉網址尾端常見的標點（不屬於網址的部分）
+    const tm = url.match(/[)\]}>.,;!?，。、）】！？」』]+$/);
+    if (tm) { trail = tm[0]; url = url.slice(0, -trail.length); }
+    if (!url) return m;
+    return `<a href="${url}" target="_blank" rel="noopener" class="desc-link">${url}</a>${trail}`;
+  });
 }
 
 // 景點卡片：左側為拖曳手柄（與卡片等高）；右上角為修改／刪除；有縮圖時左圖（1:1）右文字
@@ -179,7 +202,7 @@ function spotCardHTML(dayKey, spot, spotIdx, canEdit) {
         <div class="spot-text">
           ${spot.time ? `<span class="spot-time">⏰ ${window.escapeHtml(spot.time)}</span>` : ''}
           <div class="spot-title">${window.escapeHtml(spot.title)}</div>
-          ${spot.desc ? `<div class="spot-desc">${window.escapeHtml(spot.desc)}</div>` : ''}
+          ${spot.desc ? `<div class="spot-desc">${linkifyText(spot.desc)}</div>` : ''}
           <div class="btn-group">
             <a href="${window.escapeHtml(mapHref)}" target="_blank" class="map-btn">📍 地圖導航</a>
           </div>
@@ -205,7 +228,7 @@ function prepNotesHTML(notes, canEdit) {
         <button class="btn-spot-del" onclick="deletePrepNote('${key}')">🗑️ 刪除</button>
       </div>` : ''}
       <div class="prep-note-title">${window.escapeHtml(n.title || '（未命名）')}</div>
-      ${n.body ? `<div class="prep-note-body">${window.escapeHtml(n.body)}</div>` : ''}
+      ${n.body ? `<div class="prep-note-body">${linkifyText(n.body)}</div>` : ''}
       <div class="prep-note-meta">✍️ ${window.escapeHtml(n.by || '團員')} · ${fmtNoteTime(n.updatedAt || n.createdAt)}</div>
     </div>`).join('');
 
