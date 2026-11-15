@@ -528,4 +528,10 @@ window.switchProjectTab = function(tabName) {
 
   const targetSub = document.getElementById('subtab-' + tabName);
   if (targetSub) targetSub.classList.add('active');
+
+  // 懸浮「新增記帳」按鈕：只在記帳分頁且有編輯權限時顯示
+  const fab = document.getElementById('addExpenseFab');
+  const showFab = tabName === 'expense' && window.activeProjectData && window.canEditContent(window.activeProjectData);
+  if (fab) fab.style.display = showFab ? 'flex' : 'none';
+  document.body.classList.toggle('has-exp-fab', !!showFab);
 };
