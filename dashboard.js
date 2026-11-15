@@ -752,6 +752,8 @@ window.renderProjectHeader = function() {
     const el = document.getElementById(id);
     if (el) el.style.display = canEdit ? 'flex' : 'none';
   });
+
+  if (window.updateProjectFabs) window.updateProjectFabs();
 };
 
 window.navigateToDashboard = function() {

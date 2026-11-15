@@ -347,7 +347,23 @@ function moveSpotTo(fromDay, from, toDay, to) {
 window.openSpotModal = function(dayKey, index = -1) {
   if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可編輯行程）。');
 
-  document.getElementById('spotDayKey').value = dayKey;
+  const proj = window.activeProjectData || {};
+  // 天數下拉：排除 D0（行前備忘錄不放景點）
+  const days = window.getDynamicProjectDays(proj).filter(d => d !== 'D0');
+  const daySelect = document.getElementById('spotDayKey');
+  if (daySelect) {
+    daySelect.innerHTML = days.map(d => {
+      const t = (proj.itinerary && proj.itinerary[d] && proj.itinerary[d].title) ? proj.itinerary[d].title : d;
+      return `<option value="${d}">${window.escapeHtml(t)}</option>`;
+    }).join('');
+    let selDay = dayKey;
+    if (!selDay || !days.includes(selDay)) selDay = days[0] || 'D1';
+    daySelect.value = selDay;
+    // 編輯既有景點時鎖定天數（避免索引錯位，要搬移可用拖曳）；新增可自由選天
+    daySelect.disabled = index >= 0;
+  }
+  dayKey = daySelect ? daySelect.value : dayKey;
+
   document.getElementById('spotEditIndex').value = index;
 
   const modalTitle = document.getElementById('spotModalTitle');
@@ -359,7 +375,7 @@ window.openSpotModal = function(dayKey, index = -1) {
   const xInput = document.getElementById('spotThumbX');
   const yInput = document.getElementById('spotThumbY');
 
-  const spot = index >= 0 ? (window.activeProjectData.itinerary[dayKey].spots[index] || {}) : null;
+  const spot = index >= 0 ? ((proj.itinerary && proj.itinerary[dayKey] && proj.itinerary[dayKey].spots[index]) || {}) : null;
   modalTitle.innerText = spot ? '✏️ 編輯行程景點' : '📍 新增行程景點';
   timeInput.value = spot ? (spot.time || '') : '';
   titleInput.value = spot ? (spot.title || '') : '';
@@ -422,6 +438,7 @@ window.saveSpotFromModal = function() {
     const targetRef = window.dbRef(window.db, `projects/${window.activeProjectId}/itinerary`);
     window.dbSet(targetRef, window.activeProjectData.itinerary)
       .then(() => {
+        itinOpenState()[dayKey] = true; // 展開該天，讓剛新增/修改的景點看得到
         window.closeSpotModal();
         window.renderItineraryFromJSON(window.activeProjectData.itinerary);
       })
@@ -529,9 +546,18 @@ window.switchProjectTab = function(tabName) {
   const targetSub = document.getElementById('subtab-' + tabName);
   if (targetSub) targetSub.classList.add('active');
 
-  // 懸浮「新增記帳」按鈕：只在記帳分頁且有編輯權限時顯示
-  const fab = document.getElementById('addExpenseFab');
-  const showFab = tabName === 'expense' && window.activeProjectData && window.canEditContent(window.activeProjectData);
-  if (fab) fab.style.display = showFab ? 'flex' : 'none';
-  document.body.classList.toggle('has-exp-fab', !!showFab);
+  window.updateProjectFabs();
+};
+
+// 依目前分頁與編輯權限，顯示對應的懸浮動作鈕（記帳 / 景點），同一時間只會有一個
+window.updateProjectFabs = function() {
+  const tab = window._currentTab || 'itinerary';
+  const canEdit = window.activeProjectData && window.canEditContent(window.activeProjectData);
+  const showExp = tab === 'expense' && canEdit;
+  const showSpot = tab === 'itinerary' && canEdit;
+  const expFab = document.getElementById('addExpenseFab');
+  const spotFab = document.getElementById('addSpotFab');
+  if (expFab) expFab.style.display = showExp ? 'flex' : 'none';
+  if (spotFab) spotFab.style.display = showSpot ? 'flex' : 'none';
+  document.body.classList.toggle('has-fab', !!(showExp || showSpot));
 };
