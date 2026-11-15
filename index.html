@@ -141,7 +141,8 @@
     .spot-card { background: #FFFFFF; border: 1px solid var(--brand-border); border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; }
     .spot-time { display: inline-block; background: var(--brand-bg); color: var(--brand-main); font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--brand-border); }
     .spot-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); }
-    .spot-desc { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.5; white-space: pre-line; }
+    .spot-desc { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; word-break: break-word; }
+    .desc-link { color: var(--brand-main); font-weight: 700; text-decoration: underline; overflow-wrap: anywhere; word-break: break-all; }
     .spot-card { transition: transform 0.18s ease; }
     .spot-card.dragging { transition: none; z-index: 5; box-shadow: 0 10px 24px rgba(0,0,0,0.18); }
     .spot-body.has-thumb { display: grid; grid-template-columns: 42% 1fr; gap: 12px; align-items: start; }
@@ -165,7 +166,7 @@
     .prep-note { background: #FFFFFF; border: 1px solid var(--brand-border); border-radius: 14px; padding: 14px; margin-top: 12px; position: relative; }
     .prep-note-title { font-size: 16px; font-weight: 800; color: var(--brand-dark); }
     .prep-note.can-edit { padding-top: 40px; }
-    .prep-note-body { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .prep-note-body { font-size: 14px; color: var(--sub-text); font-weight: 600; margin-top: 6px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
     .prep-note-meta { font-size: 11px; color: var(--sub-text); margin-top: 8px; }
     .gmp-wrap { width: 100%; }
     .gmp-wrap gmp-place-autocomplete { width: 100%; }
@@ -226,6 +227,16 @@
     .mem-del-btn { border: none; background: #FFF5F5; color: var(--danger); border: 1px solid #FEB2B2; border-radius: 9px; width: 38px; height: 38px; font-size: 15px; cursor: pointer; flex-shrink: 0; }
     .mem-add-btn { width: 100%; background: var(--brand-light); color: var(--brand-main); border: 1.5px dashed var(--brand-border); padding: 9px; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; margin-top: 4px; }
     .mem-empty { font-size: 13px; color: var(--sub-text); font-weight: 600; text-align: center; padding: 10px; }
+
+    /* ===== 全部展開／收合工具列 ===== */
+    .expand-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .expand-btn { flex: 1; padding: 8px 6px; border: 1px solid var(--brand-border); background: #FFF; color: var(--brand-main); border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-sm); }
+    .expand-btn:active { transform: scale(0.97); }
+
+    /* ===== 回到頂端懸浮按鈕 ===== */
+    .scroll-top-btn { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(20px + env(safe-area-inset-bottom)); width: 46px; height: 46px; border-radius: 50%; background: var(--brand-main); color: #FFF; border: none; box-shadow: var(--shadow-lg); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 500; opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity .25s ease, transform .25s ease, visibility .25s ease; }
+    .scroll-top-btn.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .scroll-top-btn:active { transform: scale(0.92); }
 
     /* ===== 跨瀏覽器 / RWD 強化 ===== */
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -382,6 +393,10 @@
           <div class="import-bar" id="spotImportBar">
             <button class="import-btn md" onclick="openSpotAiModal('md')">📝 Markdown 匯入</button>
           </div>
+          <div class="expand-toolbar">
+            <button class="expand-btn" onclick="setAllItinDays(true)">⊕ 全部展開</button>
+            <button class="expand-btn" onclick="setAllItinDays(false)">⊖ 全部收合</button>
+          </div>
           <div id="itineraryContainer"></div>
         </div>
 
@@ -389,9 +404,12 @@
           <div class="import-bar" id="expImportBar">
             <button class="import-btn md" onclick="openExpAiModal('md')">📝 Markdown 匯入</button>
           </div>
-          <div class="card open" id="addExpenseCard">
-            <div class="card-header"><div class="card-title">➕ 新增記帳</div></div>
-            <div class="card-content" style="display:block;">
+          <div class="card" id="addExpenseCard">
+            <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+              <div class="card-title">➕ 新增記帳</div>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
+            </div>
+            <div class="card-content">
               <form id="expenseForm" onsubmit="saveExpense(event)">
                 <div class="form-group">
                   <label class="form-label">選擇天數</label>
@@ -424,6 +442,10 @@
                 <button type="submit" class="btn-submit">新增記帳</button>
               </form>
             </div>
+          </div>
+          <div class="expand-toolbar">
+            <button class="expand-btn" onclick="setAllExpDays(true)">⊕ 全部展開</button>
+            <button class="expand-btn" onclick="setAllExpDays(false)">⊖ 全部收合</button>
           </div>
           <div id="expenseDayList"></div>
         </div>
@@ -723,6 +745,11 @@
     </div>
   </div>
 
+  <!-- 回到頁面頂端的懸浮按鈕 -->
+  <button id="scrollTopBtn" class="scroll-top-btn" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })" aria-label="回到頂端" title="回到頂端">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  </button>
+
   <!-- Google Maps Platform（行程地點自動搜尋）。此金鑰會曝露在前端屬正常；請在 Google Cloud 用「HTTP 參照網址」把它限制到 nien-trip.vercel.app/* 以防盜用。 -->
   <script>
     (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
@@ -733,16 +760,34 @@
     });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261115i"></script>
-  <script src="./app-state.js?v=20261115i"></script>
-  <script src="./dashboard.js?v=20261115i"></script>
-  <script src="./auth.js?v=20261115i"></script>
-  <script src="./members.js?v=20261115i"></script>
-  <script src="./join.js?v=20261115i"></script>
-  <script src="./identity.js?v=20261115i"></script>
-  <script src="./drag-sort.js?v=20261115i"></script>
-  <script src="./itinerary.js?v=20261115i"></script>
-  <script src="./expenses.js?v=20261115i"></script>
-  <script src="./ai-importer.js?v=20261115i"></script>
+  <!-- 回到頂端懸浮按鈕：捲動超過門檻才顯示 -->
+  <script>
+    (function () {
+      var btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      var ticking = false;
+      function update() {
+        if (window.scrollY > 240) btn.classList.add('show');
+        else btn.classList.remove('show');
+        ticking = false;
+      }
+      window.addEventListener('scroll', function () {
+        if (!ticking) { window.requestAnimationFrame(update); ticking = true; }
+      }, { passive: true });
+      update();
+    })();
+  </script>
+
+  <script type="module" src="./firebase-config.js?v=20261115k"></script>
+  <script src="./app-state.js?v=20261115k"></script>
+  <script src="./dashboard.js?v=20261115k"></script>
+  <script src="./auth.js?v=20261115k"></script>
+  <script src="./members.js?v=20261115k"></script>
+  <script src="./join.js?v=20261115k"></script>
+  <script src="./identity.js?v=20261115k"></script>
+  <script src="./drag-sort.js?v=20261115k"></script>
+  <script src="./itinerary.js?v=20261115k"></script>
+  <script src="./expenses.js?v=20261115k"></script>
+  <script src="./ai-importer.js?v=20261115k"></script>
 </body>
 </html>
