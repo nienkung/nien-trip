@@ -389,6 +389,7 @@
           <span class="user-name" id="projUserName" style="font-size:11px; margin-top:3px; color:var(--sub-text);"></span>
         </div>
         <select id="projThemeSelect" class="proj-theme-select" style="display:none;" title="切換專案配色（僅團主）" onchange="changeProjectTheme(this.value)"></select>
+        <button id="projEditBtn" class="btn-logout" style="display:none; background:var(--brand-light); color:var(--brand-main);" title="編輯專案設定（僅團主）" onclick="openEditProjectModal(window.activeProjectId)">✏️ 編輯</button>
         <button class="btn-logout" style="background:var(--brand-light); color:var(--brand-main);" onclick="openMembersModal()">👥 團員</button>
       </div>
     </div>
@@ -467,6 +468,10 @@
         <div id="newCurrencyDropdown" class="currency-dropdown"></div>
         <div id="newCurrencyChips" class="currency-chips"></div>
       </div>
+      <div class="form-group">
+        <label class="form-label">主要記帳幣別（新增記帳時的預設幣別）</label>
+        <select id="newMainCurrency" class="form-control" onchange="onMainCurrencyChange('new', this.value)"></select>
+      </div>
       <input type="hidden" id="newCoverIndex" value="-1">
       <div class="form-group">
         <label class="form-label">縮圖樣式</label>
@@ -511,6 +516,10 @@
         <input type="text" id="editCurrencySearch" class="form-control" placeholder="🔍 搜尋幣別（代碼或名稱，如 TWD／台幣）" oninput="onCurrencySearchInput('edit')" autocomplete="off">
         <div id="editCurrencyDropdown" class="currency-dropdown"></div>
         <div id="editCurrencyChips" class="currency-chips"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">主要記帳幣別（新增記帳時的預設幣別）</label>
+        <select id="editMainCurrency" class="form-control" onchange="onMainCurrencyChange('edit', this.value)"></select>
       </div>
       <div class="form-group">
         <label class="form-label">縮圖樣式</label>
@@ -803,16 +812,16 @@
     })();
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261115l"></script>
-  <script src="./app-state.js?v=20261115l"></script>
-  <script src="./dashboard.js?v=20261115l"></script>
-  <script src="./auth.js?v=20261115l"></script>
-  <script src="./members.js?v=20261115l"></script>
-  <script src="./join.js?v=20261115l"></script>
-  <script src="./identity.js?v=20261115l"></script>
-  <script src="./drag-sort.js?v=20261115l"></script>
-  <script src="./itinerary.js?v=20261115l"></script>
-  <script src="./expenses.js?v=20261115l"></script>
-  <script src="./ai-importer.js?v=20261115l"></script>
+  <script type="module" src="./firebase-config.js?v=20261115m"></script>
+  <script src="./app-state.js?v=20261115m"></script>
+  <script src="./dashboard.js?v=20261115m"></script>
+  <script src="./auth.js?v=20261115m"></script>
+  <script src="./members.js?v=20261115m"></script>
+  <script src="./join.js?v=20261115m"></script>
+  <script src="./identity.js?v=20261115m"></script>
+  <script src="./drag-sort.js?v=20261115m"></script>
+  <script src="./itinerary.js?v=20261115m"></script>
+  <script src="./expenses.js?v=20261115m"></script>
+  <script src="./ai-importer.js?v=20261115m"></script>
 </body>
 </html>
