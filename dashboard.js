@@ -526,11 +526,8 @@ window.submitCreateProject = async function() {
 
 // ===== 卡片操作：編輯（名稱/日期/縮圖/團主）/ 複製 / 刪除（皆需管理權限）=====
 
-window.openEditProjectModal = function(id) {
-  const p = window.allProjects[id];
-  if (!p) return;
-  if (!window.canManageProject(p)) return alert('你沒有權限修改這個專案（僅團主或網站管理員可操作）。');
-
+// 填入「專案內容」分頁的表單欄位
+function fillEditProjectForm(id, p) {
   document.getElementById('editProjId').value = id;
   document.getElementById('editProjTitle').value = p.title || '';
   document.getElementById('editProjStartDate').value = p.startDate || '';
@@ -541,6 +538,13 @@ window.openEditProjectModal = function(id) {
   document.getElementById('editCoverIndex').value = coverIndex;
   renderCoverPicker('edit', coverIndex);
   initCurrencyPicker('edit', window.getProjectCurrencies(p), window.getProjectMainCurrency(p));
+
+  // 配色（改到此分頁設定，存檔時一併寫入）
+  const themeSel = document.getElementById('editProjTheme');
+  if (themeSel) {
+    themeSel.innerHTML = window.PROJECT_THEMES.map(t => `<option value="${t.key}">🎨 ${t.name}</option>`).join('');
+    themeSel.value = (window.THEME_KEYS.indexOf(p.theme) !== -1) ? p.theme : 'teal';
+  }
 
   // 網站管理員才顯示「重新指定團主」
   const ownerSection = document.getElementById('editOwnerSection');
@@ -554,9 +558,68 @@ window.openEditProjectModal = function(id) {
   } else if (ownerSection) {
     ownerSection.style.display = 'none';
   }
+}
+
+// 切換專案設定彈窗的分頁
+window.switchSettingsTab = function(tab) {
+  const infoPane = document.getElementById('settingsPane-info');
+  const memPane = document.getElementById('settingsPane-members');
+  const infoBtn = document.getElementById('settingsTabInfoBtn');
+  const memBtn = document.getElementById('settingsTabMembersBtn');
+  if (infoPane) infoPane.classList.toggle('active', tab === 'info');
+  if (memPane) memPane.classList.toggle('active', tab === 'members');
+  if (infoBtn) infoBtn.classList.toggle('active', tab === 'info');
+  if (memBtn) memBtn.classList.toggle('active', tab === 'members');
+};
+
+// 開啟「專案設定」彈窗。opts: { showInfo, showMembers, initialTab }
+// - 專案內容分頁需管理權限；團員分頁需在專案內（有 activeProjectData）
+window.openProjectSettingsModal = function(id, opts) {
+  const p = window.allProjects[id] || (window.activeProjectId === id ? window.activeProjectData : null);
+  if (!p) return;
+  opts = opts || {};
+
+  const canManage = window.canManageProject(p);
+  const inProject = window.activeProjectId === id && !!window.activeProjectData;
+  const showInfo = (opts.showInfo !== false) && canManage;
+  const showMembers = !!opts.showMembers && inProject;
+
+  const infoBtn = document.getElementById('settingsTabInfoBtn');
+  const memBtn = document.getElementById('settingsTabMembersBtn');
+  if (infoBtn) infoBtn.style.display = showInfo ? '' : 'none';
+  if (memBtn) memBtn.style.display = showMembers ? '' : 'none';
+
+  if (showInfo) fillEditProjectForm(id, p);
+  if (showMembers && window.renderMembersModal) window.renderMembersModal();
+
+  let tab = opts.initialTab || (showInfo ? 'info' : 'members');
+  if (tab === 'info' && !showInfo) tab = 'members';
+  if (tab === 'members' && !showMembers) tab = 'info';
+  window.switchSettingsTab(tab);
 
   const modal = document.getElementById('editProjectModal');
   if (modal) modal.style.display = 'flex';
+};
+
+// 從大廳專案卡片的 ✏️ 進入：只開「專案內容」分頁
+window.openEditProjectModal = function(id) {
+  const p = window.allProjects[id];
+  if (!p) return;
+  if (!window.canManageProject(p)) return alert('你沒有權限修改這個專案（僅團主或網站管理員可操作）。');
+  window.openProjectSettingsModal(id, { showInfo: true, showMembers: false, initialTab: 'info' });
+};
+
+// 從專案頁右上角身份標章進入：團主看兩個分頁，一般團員只看團員分頁
+window.openProjectSettings = function() {
+  const id = window.activeProjectId;
+  const p = window.activeProjectData;
+  if (!id || !p) return;
+  const canManage = window.canManageProject(p);
+  window.openProjectSettingsModal(id, {
+    showInfo: canManage,
+    showMembers: true,
+    initialTab: canManage ? 'info' : 'members'
+  });
 };
 
 window.closeEditProjectModal = function() {
@@ -585,6 +648,9 @@ window.submitEditProject = function() {
   if (!currencies.length) currencies = ['JPY', 'TWD'];
   const mainCurrency = readMainCurrency('edit') || currencies[0];
 
+  const themeEl = document.getElementById('editProjTheme');
+  const theme = themeEl ? themeEl.value : null;
+
   const updates = {
     title,
     startDate: startDateStr,
@@ -594,6 +660,7 @@ window.submitEditProject = function() {
     currencies: currencies,
     mainCurrency: mainCurrency
   };
+  if (theme && window.THEME_KEYS.indexOf(theme) !== -1) updates.theme = theme;
 
   // 日期有變 → 重建行程天數骨架，保留既有景點
   const dateChanged = (startDateStr !== p.startDate) || (endDateStr !== p.endDate);
@@ -737,15 +804,10 @@ window.renderProjectHeader = function() {
       visitor: ['role-viewer', '👀 訪客']
     };
     const [cls, label] = map[role] || map.visitor;
-    roleEl.className = 'role-badge ' + cls;
-    roleEl.innerText = label;
+    // 身份標章同時是「專案設定 / 團員」入口（右上角只保留這一顆，版面讓給標題）
+    roleEl.className = 'role-badge proj-badge-btn ' + cls;
+    roleEl.innerHTML = window.escapeHtml(label) + ' <span style="opacity:.6;">⚙</span>';
   }
-
-  renderProjectThemeSelect();
-
-  // 編輯專案按鈕：只有團主 / 管理員看得到（可直接在專案頁內編輯，不必退回大廳）
-  const editBtn = document.getElementById('projEditBtn');
-  if (editBtn) editBtn.style.display = window.canManageProject(window.activeProjectData) ? '' : 'none';
 
   const canEdit = window.canEditContent(window.activeProjectData);
   ['spotImportBar', 'expImportBar'].forEach(id => {

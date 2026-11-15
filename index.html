@@ -54,7 +54,7 @@
     .user-name { font-size: 13px; font-weight: 700; color: var(--brand-dark); }
     .btn-logout {
       background: var(--brand-light); color: var(--sub-text); border: 1px solid var(--brand-border);
-      padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+      padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
     }
     .main-container { max-width: 600px; margin: 0 auto; padding: 20px 16px 80px; }
     .section-title { font-size: 18px; font-weight: 800; color: var(--brand-dark); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
@@ -254,6 +254,16 @@
     .nav-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
     .nav-right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
     .nav-proj-title { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    /* 身份標章作為「專案設定 / 團員」入口 */
+    .proj-badge-btn { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; box-shadow: var(--shadow-sm); }
+    .proj-badge-btn:active { transform: scale(0.96); }
+
+    /* 彈窗內分頁（專案設定：專案內容 / 團員管理）*/
+    .modal-tabs { display: flex; gap: 6px; margin-bottom: 14px; background: var(--brand-light); border: 1px solid var(--brand-border); border-radius: 12px; padding: 4px; }
+    .modal-tab-btn { flex: 1; border: none; background: transparent; padding: 9px 6px; border-radius: 9px; font-size: 14px; font-weight: 800; color: var(--sub-text); cursor: pointer; }
+    .modal-tab-btn.active { background: var(--brand-main); color: #FFF; }
+    .settings-pane { display: none; }
+    .settings-pane.active { display: block; }
 
     /* 頂端「新增記帳」入口卡（點了開彈窗） */
     .add-exp-entry { cursor: pointer; }
@@ -290,10 +300,8 @@
       .import-btn { font-size: 13px; padding: 11px 5px; }
       .section-title { font-size: 16px; }
     }
-    /* 手機：精簡專案頁導覽列右側，把空間留給專案名稱 */
+    /* 手機：右側只剩身份標章，標題用滿整行 */
     @media (max-width: 480px) {
-      #projUserName { display: none; }
-      .proj-theme-select { max-width: 104px; padding: 6px; }
       .nav-proj-title { font-size: 15px; }
     }
     /* 平板 / 桌機置中，避免過寬 */
@@ -400,13 +408,7 @@
         <h2 class="nav-proj-title" id="activeProjectTitle">載入中...</h2>
       </div>
       <div class="nav-right">
-        <div style="display:flex; flex-direction:column; align-items:flex-end; line-height:1.2;">
-          <span id="projRoleBadge" class="role-badge role-viewer">👀 訪客</span>
-          <span class="user-name" id="projUserName" style="font-size:11px; margin-top:3px; color:var(--sub-text);"></span>
-        </div>
-        <select id="projThemeSelect" class="proj-theme-select" style="display:none;" title="切換專案配色（僅團主）" onchange="changeProjectTheme(this.value)"></select>
-        <button id="projEditBtn" class="btn-logout" style="display:none; background:var(--brand-light); color:var(--brand-main);" title="編輯專案設定（僅團主）" onclick="openEditProjectModal(window.activeProjectId)">✏️ 編輯</button>
-        <button class="btn-logout" style="background:var(--brand-light); color:var(--brand-main);" onclick="openMembersModal()">👥 團員</button>
+        <span id="projRoleBadge" class="role-badge role-viewer proj-badge-btn" onclick="openProjectSettings()" title="專案設定 / 團員">👀 訪客</span>
       </div>
     </div>
 
@@ -506,56 +508,75 @@
   <div id="editProjectModal" class="modal-mask">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <h3 style="font-size:17px; font-weight:800;">✏️ 編輯專案</h3>
+        <h3 style="font-size:17px; font-weight:800;">⚙️ 專案設定</h3>
         <button onclick="closeEditProjectModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
       </div>
-      <input type="hidden" id="editProjId">
-      <input type="hidden" id="editCoverIndex" value="-1">
 
-      <div class="form-group">
-        <label class="form-label">專案名稱</label>
-        <input type="text" id="editProjTitle" class="form-control" placeholder="請輸入專案名稱">
+      <div class="modal-tabs">
+        <button id="settingsTabInfoBtn" class="modal-tab-btn active" onclick="switchSettingsTab('info')">⚙️ 專案內容</button>
+        <button id="settingsTabMembersBtn" class="modal-tab-btn" onclick="switchSettingsTab('members')">👥 團員管理</button>
       </div>
 
-      <div style="display:flex; gap:10px;">
-        <div class="form-group" style="flex:1;">
-          <label class="form-label">出發日期</label>
-          <input type="date" id="editProjStartDate" class="form-control">
+      <!-- 分頁一：專案內容 -->
+      <div id="settingsPane-info" class="settings-pane active">
+        <input type="hidden" id="editProjId">
+        <input type="hidden" id="editCoverIndex" value="-1">
+
+        <div class="form-group">
+          <label class="form-label">專案名稱</label>
+          <input type="text" id="editProjTitle" class="form-control" placeholder="請輸入專案名稱">
         </div>
-        <div class="form-group" style="flex:1;">
-          <label class="form-label">結束日期</label>
-          <input type="date" id="editProjEndDate" class="form-control">
+
+        <div style="display:flex; gap:10px;">
+          <div class="form-group" style="flex:1;">
+            <label class="form-label">出發日期</label>
+            <input type="date" id="editProjStartDate" class="form-control">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label class="form-label">結束日期</label>
+            <input type="date" id="editProjEndDate" class="form-control">
+          </div>
         </div>
-      </div>
-      <p style="font-size:11px; color:var(--sub-text); margin:-6px 0 12px;">※ 更動日期會自動重算行程天數，既有景點會盡量保留；縮短天數時超出的景點會被刪除。</p>
+        <p style="font-size:11px; color:var(--sub-text); margin:-6px 0 12px;">※ 更動日期會自動重算行程天數，既有景點會盡量保留；縮短天數時超出的景點會被刪除。</p>
 
-      <div class="form-group">
-        <label class="form-label">本專案使用的幣別</label>
-        <input type="text" id="editCurrencySearch" class="form-control" placeholder="🔍 搜尋幣別（代碼或名稱，如 TWD／台幣）" oninput="onCurrencySearchInput('edit')" autocomplete="off">
-        <div id="editCurrencyDropdown" class="currency-dropdown"></div>
-        <div id="editCurrencyChips" class="currency-chips"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">主要記帳幣別（新增記帳時的預設幣別）</label>
-        <select id="editMainCurrency" class="form-control" onchange="onMainCurrencyChange('edit', this.value)"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">縮圖樣式</label>
-        <div id="editCoverPicker" class="cover-picker"></div>
+        <div class="form-group">
+          <label class="form-label">專案配色</label>
+          <select id="editProjTheme" class="form-control"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">本專案使用的幣別</label>
+          <input type="text" id="editCurrencySearch" class="form-control" placeholder="🔍 搜尋幣別（代碼或名稱，如 TWD／台幣）" oninput="onCurrencySearchInput('edit')" autocomplete="off">
+          <div id="editCurrencyDropdown" class="currency-dropdown"></div>
+          <div id="editCurrencyChips" class="currency-chips"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">主要記帳幣別（新增記帳時的預設幣別）</label>
+          <select id="editMainCurrency" class="form-control" onchange="onMainCurrencyChange('edit', this.value)"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">縮圖樣式</label>
+          <div id="editCoverPicker" class="cover-picker"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">自訂縮圖圖片網址（選填，填了會蓋過上面的樣式）</label>
+          <input type="text" id="editProjCoverImage" class="form-control" placeholder="https://...jpg">
+        </div>
+
+        <div class="form-group" id="editOwnerSection" style="display:none;">
+          <label class="form-label">🛡️ 重新指定團主（僅網站管理員）</label>
+          <select id="editProjOwner" class="form-control"></select>
+          <p style="font-size:11px; color:var(--sub-text); margin-top:4px;">以成員暱稱接手；該團主下次登入後，由專案內部功能綁定其 email 權限。</p>
+        </div>
+
+        <button class="btn-submit" onclick="submitEditProject()">儲存變更</button>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">自訂縮圖圖片網址（選填，填了會蓋過上面的樣式）</label>
-        <input type="text" id="editProjCoverImage" class="form-control" placeholder="https://...jpg">
+      <!-- 分頁二：團員管理 -->
+      <div id="settingsPane-members" class="settings-pane">
+        <div id="membersModalBody"></div>
       </div>
-
-      <div class="form-group" id="editOwnerSection" style="display:none;">
-        <label class="form-label">🛡️ 重新指定團主（僅網站管理員）</label>
-        <select id="editProjOwner" class="form-control"></select>
-        <p style="font-size:11px; color:var(--sub-text); margin-top:4px;">以成員暱稱接手；該團主下次登入後，由專案內部功能綁定其 email 權限。</p>
-      </div>
-
-      <button class="btn-submit" onclick="submitEditProject()">儲存變更</button>
     </div>
   </div>
 
@@ -709,16 +730,6 @@
     </div>
   </div>
 
-  <div id="membersModal" class="modal-mask">
-    <div class="modal-box">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <h3 style="font-size:17px; font-weight:800;">👥 團員管理</h3>
-        <button onclick="closeMembersModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
-      </div>
-      <div id="membersModalBody"></div>
-    </div>
-  </div>
-
   <!-- Markdown 匯入（不使用 AI）：提示詞 → 貼回結果 → 預覽 → 匯入 -->
   <div id="mdImportModal" class="modal-mask" data-kind="spot">
     <div class="modal-box" style="max-width:560px;">
@@ -848,16 +859,16 @@
     window.addEventListener('orientationchange', function () { setTimeout(window.syncNavbarHeight, 200); });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261115n"></script>
-  <script src="./app-state.js?v=20261115n"></script>
-  <script src="./dashboard.js?v=20261115n"></script>
-  <script src="./auth.js?v=20261115n"></script>
-  <script src="./members.js?v=20261115n"></script>
-  <script src="./join.js?v=20261115n"></script>
-  <script src="./identity.js?v=20261115n"></script>
-  <script src="./drag-sort.js?v=20261115n"></script>
-  <script src="./itinerary.js?v=20261115n"></script>
-  <script src="./expenses.js?v=20261115n"></script>
-  <script src="./ai-importer.js?v=20261115n"></script>
+  <script type="module" src="./firebase-config.js?v=20261115p"></script>
+  <script src="./app-state.js?v=20261115p"></script>
+  <script src="./dashboard.js?v=20261115p"></script>
+  <script src="./auth.js?v=20261115p"></script>
+  <script src="./members.js?v=20261115p"></script>
+  <script src="./join.js?v=20261115p"></script>
+  <script src="./identity.js?v=20261115p"></script>
+  <script src="./drag-sort.js?v=20261115p"></script>
+  <script src="./itinerary.js?v=20261115p"></script>
+  <script src="./expenses.js?v=20261115p"></script>
+  <script src="./ai-importer.js?v=20261115p"></script>
 </body>
 </html>
