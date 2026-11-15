@@ -303,9 +303,14 @@ const CURRENCY_IDS = {
   edit: { search: 'editCurrencySearch', dropdown: 'editCurrencyDropdown', chips: 'editCurrencyChips' }
 };
 window._currencySel = { new: [], edit: [] };
+// 主要記帳幣別（新增記帳預設幣別）的暫存選擇
+window._mainCurrencySel = { new: null, edit: null };
 
-function initCurrencyPicker(scope, selectedCodes) {
+function initCurrencyPicker(scope, selectedCodes, mainCode) {
   window._currencySel[scope] = Array.isArray(selectedCodes) ? selectedCodes.slice() : [];
+  window._mainCurrencySel[scope] = (mainCode && window._currencySel[scope].includes(mainCode))
+    ? mainCode
+    : (window._currencySel[scope][0] || null);
   const ids = CURRENCY_IDS[scope];
   const s = document.getElementById(ids.search); if (s) s.value = '';
   const d = document.getElementById(ids.dropdown); if (d) { d.innerHTML = ''; d.classList.remove('show'); }
@@ -314,13 +319,42 @@ function initCurrencyPicker(scope, selectedCodes) {
 
 function renderCurrencyChips(scope) {
   const box = document.getElementById(CURRENCY_IDS[scope].chips);
-  if (!box) return;
-  const sel = window._currencySel[scope] || [];
-  box.innerHTML = sel.length ? sel.map(code => {
-    const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
-    return `<span class="currency-chip">${code} ${info.symbol || ''}<span class="chip-x" onclick="removeCurrency('${scope}','${code}')">✕</span></span>`;
-  }).join('') : '<span style="font-size:12px; color:var(--sub-text);">尚未選擇幣別，於上方搜尋後點選加入</span>';
+  if (box) {
+    const sel = window._currencySel[scope] || [];
+    box.innerHTML = sel.length ? sel.map(code => {
+      const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
+      return `<span class="currency-chip">${code} ${info.symbol || ''}<span class="chip-x" onclick="removeCurrency('${scope}','${code}')">✕</span></span>`;
+    }).join('') : '<span style="font-size:12px; color:var(--sub-text);">尚未選擇幣別，於上方搜尋後點選加入</span>';
+  }
+  // 幣別清單變動時，連動更新「主要記帳幣別」下拉
+  renderMainCurrencyOptions(scope);
 }
+
+// 「主要記帳幣別」下拉：選項來自目前已選幣別，若原主要幣別被移除則退回第一個
+function renderMainCurrencyOptions(scope) {
+  const sel = document.getElementById(scope + 'MainCurrency');
+  if (!sel) return;
+  const list = window._currencySel[scope] || [];
+  let main = window._mainCurrencySel[scope];
+  if (!list.includes(main)) main = list[0] || null;
+  window._mainCurrencySel[scope] = main;
+
+  if (!list.length) {
+    sel.innerHTML = '<option value="">（請先於上方加入幣別）</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = list.map(code => {
+    const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
+    return `<option value="${code}">${info.symbol || ''} ${code} - ${info.name || ''}</option>`;
+  }).join('');
+  if (main) sel.value = main;
+}
+
+window.onMainCurrencyChange = function(scope, val) {
+  window._mainCurrencySel[scope] = val;
+};
 
 window.onCurrencySearchInput = function(scope) {
   const ids = CURRENCY_IDS[scope];
@@ -363,6 +397,13 @@ function readCurrencyPicker(scope) {
   return (window._currencySel[scope] || []).slice();
 }
 
+// 讀取「主要記帳幣別」：若未選或已不在幣別清單中，退回清單第一個
+function readMainCurrency(scope) {
+  const list = window._currencySel[scope] || [];
+  const main = window._mainCurrencySel[scope];
+  return (main && list.includes(main)) ? main : (list[0] || null);
+}
+
 window.openNewProjectModal = function() {
   // 重置縮圖欄位（避免沿用上一次的設定）
   const coverImg = document.getElementById('newProjCoverImage');
@@ -370,7 +411,7 @@ window.openNewProjectModal = function() {
   const coverIdx = document.getElementById('newCoverIndex');
   if (coverIdx) coverIdx.value = -1;
   renderCoverPicker('new', -1);
-  initCurrencyPicker('new', ['TWD', 'JPY']);
+  initCurrencyPicker('new', ['TWD', 'JPY'], 'TWD');
 
   const modal = document.getElementById('createProjectModal');
   if (modal) modal.style.display = 'flex';
@@ -448,6 +489,7 @@ window.submitCreateProject = async function() {
   const coverImage = (document.getElementById('newProjCoverImage').value || '').trim();
   let currencies = readCurrencyPicker('new');
   if (!currencies.length) currencies = ['JPY', 'TWD'];
+  const mainCurrency = readMainCurrency('new') || currencies[0];
 
   const newProjData = {
     title: title,
@@ -459,6 +501,7 @@ window.submitCreateProject = async function() {
     members: members,
     externalPeople: externalPeople,
     currencies: currencies,
+    mainCurrency: mainCurrency,
     itinerary: itinerary,
     expenses: {},
     createdAt: Date.now()
@@ -497,7 +540,7 @@ window.openEditProjectModal = function(id) {
   const coverIndex = (typeof p.coverIndex === 'number') ? p.coverIndex : -1;
   document.getElementById('editCoverIndex').value = coverIndex;
   renderCoverPicker('edit', coverIndex);
-  initCurrencyPicker('edit', window.getProjectCurrencies(p));
+  initCurrencyPicker('edit', window.getProjectCurrencies(p), window.getProjectMainCurrency(p));
 
   // 網站管理員才顯示「重新指定團主」
   const ownerSection = document.getElementById('editOwnerSection');
@@ -540,6 +583,7 @@ window.submitEditProject = function() {
 
   let currencies = readCurrencyPicker('edit');
   if (!currencies.length) currencies = ['JPY', 'TWD'];
+  const mainCurrency = readMainCurrency('edit') || currencies[0];
 
   const updates = {
     title,
@@ -547,7 +591,8 @@ window.submitEditProject = function() {
     endDate: endDateStr,
     coverImage: coverImage || null,
     coverIndex: (isNaN(coverIndex) || coverIndex < 0) ? null : coverIndex,
-    currencies: currencies
+    currencies: currencies,
+    mainCurrency: mainCurrency
   };
 
   // 日期有變 → 重建行程天數骨架，保留既有景點
@@ -633,6 +678,7 @@ function refreshOpenProject() {
 
   window.renderProjectHeader();
   window.renderItineraryFromJSON(window.activeProjectData.itinerary);
+  if (window.updateExpenseFormOptions) window.updateExpenseFormOptions();
   window.renderExpenses();
   window.renderSettlement();
 
@@ -696,6 +742,10 @@ window.renderProjectHeader = function() {
   }
 
   renderProjectThemeSelect();
+
+  // 編輯專案按鈕：只有團主 / 管理員看得到（可直接在專案頁內編輯，不必退回大廳）
+  const editBtn = document.getElementById('projEditBtn');
+  if (editBtn) editBtn.style.display = window.canManageProject(window.activeProjectData) ? '' : 'none';
 
   const canEdit = window.canEditContent(window.activeProjectData);
   ['spotImportBar', 'expImportBar'].forEach(id => {

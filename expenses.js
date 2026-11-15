@@ -39,6 +39,9 @@ window.updateExpenseFormOptions = function() {
       const info = window.CURRENCY_INFO[code] || { name: code, symbol: '' };
       return `<option value="${code}">${info.symbol || ''} ${code} - ${info.name || ''}</option>`;
     }).join('');
+    // 預設選取專案設定的「主要記帳幣別」
+    const mainCur = window.getProjectMainCurrency ? window.getProjectMainCurrency(proj) : null;
+    if (mainCur && currencyCodes.includes(mainCur)) expCurrencySelect.value = mainCur;
   }
 
   const expPayerSelect = document.getElementById('expPayer');
