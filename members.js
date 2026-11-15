@@ -1,16 +1,18 @@
 // 團員管理彈窗（第二階段）：團員以 uid 辨識；名單不顯示 email
 // 團主新增團員時只填暱稱（未綁定），對方透過邀請連結或申請加入後會自動認領同名的未綁定團員。
 // 舊資料的 email 僅保留在資料中，供登入後自動綁定使用（第三階段再清除）。
+// 團員管理現已內嵌於「專案設定」彈窗的「團員管理」分頁；以下開關函式導向該彈窗。
 
 window.openMembersModal = function() {
   if (!window.activeProjectData) return alert('請先進入專案！');
-  window.renderMembersModal();
-  const modal = document.getElementById('membersModal');
-  if (modal) modal.style.display = 'flex';
+  if (window.openProjectSettingsModal) {
+    const canManage = window.canManageProject(window.activeProjectData);
+    window.openProjectSettingsModal(window.activeProjectId, { showInfo: canManage, showMembers: true, initialTab: 'members' });
+  }
 };
 
 window.closeMembersModal = function() {
-  const modal = document.getElementById('membersModal');
+  const modal = document.getElementById('editProjectModal');
   if (modal) modal.style.display = 'none';
 };
 
