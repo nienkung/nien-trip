@@ -237,6 +237,18 @@
     .scroll-top-btn { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(20px + env(safe-area-inset-bottom)); width: 46px; height: 46px; border-radius: 50%; background: var(--brand-main); color: #FFF; border: none; box-shadow: var(--shadow-lg); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 500; opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity .25s ease, transform .25s ease, visibility .25s ease; }
     .scroll-top-btn.show { opacity: 1; visibility: visible; transform: translateY(0); }
     .scroll-top-btn:active { transform: scale(0.92); }
+    /* 記帳分頁時，回到頂端鈕上移，讓出下方給懸浮記帳鈕 */
+    body.has-exp-fab .scroll-top-btn { bottom: calc(84px + env(safe-area-inset-bottom)); }
+
+    /* ===== 懸浮「新增記帳」按鈕（只在記帳分頁顯示）===== */
+    .exp-fab { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(20px + env(safe-area-inset-bottom)); height: 52px; padding: 0 22px; border-radius: 26px; background: var(--brand-main); color: #FFF; border: none; box-shadow: var(--shadow-lg); cursor: pointer; display: none; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; z-index: 500; }
+    .exp-fab .exp-fab-plus { font-size: 20px; line-height: 1; }
+    .exp-fab:active { transform: scale(0.96); }
+
+    /* 頂端「新增記帳」入口卡（點了開彈窗） */
+    .add-exp-entry { cursor: pointer; }
+    .add-exp-entry .card-header { border-bottom: none; }
+    .add-exp-hint { font-size: 13px; font-weight: 800; color: var(--brand-main); flex-shrink: 0; margin-left: 8px; }
 
     /* ===== 跨瀏覽器 / RWD 強化 ===== */
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -404,43 +416,10 @@
           <div class="import-bar" id="expImportBar">
             <button class="import-btn md" onclick="openExpAiModal('md')">📝 Markdown 匯入</button>
           </div>
-          <div class="card" id="addExpenseCard">
-            <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+          <div class="card add-exp-entry" id="addExpenseCard" onclick="openAddExpenseModal()">
+            <div class="card-header">
               <div class="card-title">➕ 新增記帳</div>
-              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
-            </div>
-            <div class="card-content">
-              <form id="expenseForm" onsubmit="saveExpense(event)">
-                <div class="form-group">
-                  <label class="form-label">選擇天數</label>
-                  <select id="expDay" class="form-control"></select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">消費品名</label>
-                  <input type="text" id="expItem" class="form-control" placeholder="例如：超商零食 / 晚餐拉麵" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">金額</label>
-                  <input type="number" step="any" id="expAmount" class="form-control" placeholder="0" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">選擇幣別</label>
-                  <select id="expCurrency" class="form-control"></select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">付款人</label>
-                  <select id="expPayer" class="form-control"></select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">參與分帳成員 (可多選)</label>
-                  <div id="expParticipantsBox" class="checkbox-group"></div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">📎 發票／收據（選填，可多張，圖片或 PDF）</label>
-                  <input type="file" id="expReceiptInput" class="form-control" accept="image/*,application/pdf" multiple>
-                </div>
-                <button type="submit" class="btn-submit">新增記帳</button>
-              </form>
+              <span class="add-exp-hint">點我開啟 →</span>
             </div>
           </div>
           <div class="expand-toolbar">
@@ -618,6 +597,47 @@
     </div>
   </div>
 
+  <!-- 新增記帳（彈窗）：由頂端入口卡或右下角懸浮鈕開啟 -->
+  <div id="addExpenseModal" class="modal-mask">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:17px; font-weight:800;">➕ 新增記帳</h3>
+        <button onclick="closeAddExpenseModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+      <form id="expenseForm" onsubmit="saveExpense(event)">
+        <div class="form-group">
+          <label class="form-label">選擇天數</label>
+          <select id="expDay" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">消費品名</label>
+          <input type="text" id="expItem" class="form-control" placeholder="例如：超商零食 / 晚餐拉麵" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">金額</label>
+          <input type="number" step="any" id="expAmount" class="form-control" placeholder="0" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">選擇幣別</label>
+          <select id="expCurrency" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">付款人</label>
+          <select id="expPayer" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">參與分帳成員 (可多選)</label>
+          <div id="expParticipantsBox" class="checkbox-group"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">📎 發票／收據（選填，可多張，圖片或 PDF）</label>
+          <input type="file" id="expReceiptInput" class="form-control" accept="image/*,application/pdf" multiple>
+        </div>
+        <button type="submit" class="btn-submit">新增記帳</button>
+      </form>
+    </div>
+  </div>
+
   <div id="editExpenseModal" class="modal-mask">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -745,6 +765,11 @@
     </div>
   </div>
 
+  <!-- 懸浮「新增記帳」按鈕（只在記帳分頁顯示） -->
+  <button id="addExpenseFab" class="exp-fab" style="display:none;" onclick="openAddExpenseModal()" aria-label="新增記帳" title="新增記帳">
+    <span class="exp-fab-plus">＋</span><span>記帳</span>
+  </button>
+
   <!-- 回到頁面頂端的懸浮按鈕 -->
   <button id="scrollTopBtn" class="scroll-top-btn" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })" aria-label="回到頂端" title="回到頂端">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
@@ -778,16 +803,16 @@
     })();
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261115k"></script>
-  <script src="./app-state.js?v=20261115k"></script>
-  <script src="./dashboard.js?v=20261115k"></script>
-  <script src="./auth.js?v=20261115k"></script>
-  <script src="./members.js?v=20261115k"></script>
-  <script src="./join.js?v=20261115k"></script>
-  <script src="./identity.js?v=20261115k"></script>
-  <script src="./drag-sort.js?v=20261115k"></script>
-  <script src="./itinerary.js?v=20261115k"></script>
-  <script src="./expenses.js?v=20261115k"></script>
-  <script src="./ai-importer.js?v=20261115k"></script>
+  <script type="module" src="./firebase-config.js?v=20261115l"></script>
+  <script src="./app-state.js?v=20261115l"></script>
+  <script src="./dashboard.js?v=20261115l"></script>
+  <script src="./auth.js?v=20261115l"></script>
+  <script src="./members.js?v=20261115l"></script>
+  <script src="./join.js?v=20261115l"></script>
+  <script src="./identity.js?v=20261115l"></script>
+  <script src="./drag-sort.js?v=20261115l"></script>
+  <script src="./itinerary.js?v=20261115l"></script>
+  <script src="./expenses.js?v=20261115l"></script>
+  <script src="./ai-importer.js?v=20261115l"></script>
 </body>
 </html>
