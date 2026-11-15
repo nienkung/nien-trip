@@ -266,6 +266,10 @@ window.switchView = function(viewId) {
   if (target) target.classList.add('active');
   window._currentView = viewId;
   window.applyTheme(viewId === 'project' && window.activeProjectData ? window.activeProjectData.theme : null);
+  // 進入專案頁後，待畫面繪製再量測導覽列高度（供分頁表頭 sticky 定位）
+  if (viewId === 'project' && window.syncNavbarHeight) {
+    requestAnimationFrame(() => window.syncNavbarHeight());
+  }
   window.saveViewState();
 };
 

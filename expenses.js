@@ -14,15 +14,10 @@ window.updateExpenseFormOptions = function() {
   const splitNames = window.getAllSplitNames(proj);
   const names = splitNames.length ? splitNames : ['錢粘'];
 
-  // 依權限顯示/隱藏「新增記帳」入口卡與懸浮按鈕
-  const canEditNow = window.canEditContent(proj);
+  // 依權限顯示/隱藏「新增記帳」入口卡；懸浮鈕由 updateProjectFabs 統一管理
   const addCard = document.getElementById('addExpenseCard');
-  if (addCard) addCard.style.display = canEditNow ? 'block' : 'none';
-
-  const fab = document.getElementById('addExpenseFab');
-  const onExpenseTab = window._currentTab === 'expense';
-  if (fab) fab.style.display = (onExpenseTab && canEditNow) ? 'flex' : 'none';
-  document.body.classList.toggle('has-exp-fab', !!(onExpenseTab && canEditNow));
+  if (addCard) addCard.style.display = window.canEditContent(proj) ? 'block' : 'none';
+  if (window.updateProjectFabs) window.updateProjectFabs();
 
   const expDaySelect = document.getElementById('expDay');
   if (expDaySelect) {
