@@ -14,9 +14,15 @@ window.updateExpenseFormOptions = function() {
   const splitNames = window.getAllSplitNames(proj);
   const names = splitNames.length ? splitNames : ['錢粘'];
 
-  // 依權限顯示/隱藏「新增記帳」表單
+  // 依權限顯示/隱藏「新增記帳」入口卡與懸浮按鈕
+  const canEditNow = window.canEditContent(proj);
   const addCard = document.getElementById('addExpenseCard');
-  if (addCard) addCard.style.display = window.canEditContent(proj) ? 'block' : 'none';
+  if (addCard) addCard.style.display = canEditNow ? 'block' : 'none';
+
+  const fab = document.getElementById('addExpenseFab');
+  const onExpenseTab = window._currentTab === 'expense';
+  if (fab) fab.style.display = (onExpenseTab && canEditNow) ? 'flex' : 'none';
+  document.body.classList.toggle('has-exp-fab', !!(onExpenseTab && canEditNow));
 
   const expDaySelect = document.getElementById('expDay');
   if (expDaySelect) {
@@ -180,6 +186,22 @@ async function deleteReceiptFiles(rec) {
   }
 }
 
+// ===== 新增記帳彈窗：由頂端入口卡或右下角懸浮鈕開啟 =====
+
+window.openAddExpenseModal = function() {
+  if (!window.activeProjectId) return alert('請先選擇專案！');
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可記帳）。');
+  // 開窗前重填選項（天數、幣別、付款人、分帳成員可能有變動）
+  if (window.updateExpenseFormOptions) window.updateExpenseFormOptions();
+  const modal = document.getElementById('addExpenseModal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.closeAddExpenseModal = function() {
+  const modal = document.getElementById('addExpenseModal');
+  if (modal) modal.style.display = 'none';
+};
+
 // ===== 記帳新增 =====
 
 window.saveExpense = function(e) {
@@ -212,6 +234,9 @@ window.saveExpense = function(e) {
       document.getElementById('expItem').value = '';
       document.getElementById('expAmount').value = '';
       if (fileInput) fileInput.value = '';
+
+      // 送出後關閉彈窗（發票在背景繼續上傳）
+      window.closeAddExpenseModal();
 
       if (files.length) {
         try {
