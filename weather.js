@@ -102,14 +102,18 @@
     return best;
   }
 
+  function hasDate(fc, date) {
+    return !!(fc && fc.daily && date && fc.daily.time.indexOf(fmtDate(date)) >= 0);
+  }
   function summaryOf(fc, date) {
-    if (!fc || !fc.daily || !date) return null;
+    if (!hasDate(fc, date)) return null;
     var i = fc.daily.time.indexOf(fmtDate(date));
-    if (i < 0) return null;
-    var w = WMO[fc.daily.code[i]] || ['☁️', '—'];
+    var hi = fc.daily.hi[i], lo = fc.daily.lo[i], code = fc.daily.code[i];
+    if (hi == null || lo == null) return null;
+    var wx = WMO[code] || ['☁️', '—'];
     return {
-      code: fc.daily.code[i], icon: w[0], label: w[1],
-      hi: Math.round(fc.daily.hi[i]), lo: Math.round(fc.daily.lo[i]), rain: Math.round(fc.daily.rain[i] || 0)
+      code: code, icon: wx[0], label: wx[1],
+      hi: Math.round(hi), lo: Math.round(lo), rain: Math.round(fc.daily.rain[i] || 0)
     };
   }
 
@@ -149,7 +153,7 @@
           var mainSum = r[0] ? summaryOf(r[0], date) : null;
           return {
             date: date, main: main, count: d.count, mainSum: mainSum,
-            outOfRange: !!r[0] && !mainSum,
+            outOfRange: !!r[0] && !hasDate(r[0], date),
             noForecast: !r[0] && !!main,
             spots: d.coords.map(function (c, i) {
               var differs = !!c && !!main && dist(c, main) > 0.3;

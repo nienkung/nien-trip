@@ -12,14 +12,15 @@
     '.prep-cd-head{font-size:12px;font-weight:800;color:var(--brand-main);margin-bottom:6px}' +
     '.prep-cd-cells{display:flex;gap:6px;align-items:flex-start}' +
     '.prep-cell{flex:1;text-align:center;min-width:0;font-family:ui-monospace,Menlo,monospace}' +
-    '.prep-cell-icon{height:14px;font-size:12px;color:var(--brand-main)}' +
+    '.prep-cell-icon{min-height:18px;margin-bottom:10px;font-size:15px;line-height:18px}' +
     '.prep-cell-date{font-size:12px;color:var(--brand-main);font-weight:500;line-height:1.2}' +
     '.prep-cell-date.emph{font-size:16px;font-weight:800;color:var(--brand-dark)}' +
     '.prep-cell-wk{font-size:10px;color:var(--brand-main);opacity:.8}' +
     '.prep-sec{margin-bottom:14px;overflow:visible}' +
     '.prep-sec-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer;font-size:15px;font-weight:800;color:var(--brand-dark)}' +
-    '.prep-legend{position:sticky;top:calc(var(--prep-top,120px) + var(--prep-cd-h,80px));z-index:40;display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 14px;background:var(--brand-light);border-top:1px solid var(--brand-border);border-bottom:1px solid var(--brand-border);font-size:12px;color:var(--brand-dark)}' +
-    '.prep-legend i{color:var(--brand-main)}' +
+    '.prep-legend{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px 6px;background:var(--brand-light);border-top:1px solid var(--brand-border);border-bottom:1px solid var(--brand-border);font-size:12px;color:var(--brand-dark);text-align:center}' +
+    '.prep-legend span{white-space:nowrap}' +
+    '.prep-wx-stick{position:sticky;top:calc(var(--prep-top,120px) + var(--prep-cd-h,80px));z-index:40;background:var(--card-bg)}' +
     '.prep-wx-row{display:grid;grid-template-columns:56px 1fr auto;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--brand-border)}' +
     '.prep-wx-row.today{background:var(--brand-light)}' +
     '.prep-wx-date{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:800;color:var(--brand-dark)}' +
@@ -52,6 +53,7 @@
     '.prep-card-acts{display:flex;gap:8px;margin-top:10px}' +
     '.prep-btn{font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;border:1px solid var(--brand-border);background:#fff;color:var(--brand-dark);cursor:pointer}' +
     '.prep-btn.danger{color:#c0392b;border-color:#f0c4bd}';
+  st2.textContent += '.prep-card{display:block}';
   document.head.appendChild(st2);
 
   function esc(s) { return window.escapeHtml ? window.escapeHtml(s) : String(s == null ? '' : s); }
@@ -80,18 +82,23 @@
   }
 
   function setVars() {
-    var nav = document.querySelector('.navbar');
     var tb = document.querySelector('.tabbar-sticky');
-    var top = (nav ? nav.offsetHeight : 60) + (tb ? tb.offsetHeight : 0);
+    var top = tb ? Math.max(0, Math.round(tb.getBoundingClientRect().bottom)) : 60;
     document.documentElement.style.setProperty('--prep-top', top + 'px');
     var cd = document.getElementById('prepCountdown');
-    if (cd) document.documentElement.style.setProperty('--prep-cd-h', (cd.offsetHeight + 10) + 'px');
+    if (cd) document.documentElement.style.setProperty('--prep-cd-h', (cd.offsetHeight + 8) + 'px');
   }
+  window.addEventListener('scroll', function () {
+    if (window._currentTab === 'prep') setVars();
+  }, { passive: true });
+  window.addEventListener('resize', function () {
+    if (window._currentTab === 'prep') setVars();
+  });
 
   function cdCell(t, icon, emph, label) {
     return '<div class="prep-cell"><div class="prep-cell-icon">' + (icon || '') + '</div>' +
       '<div class="prep-cell-date' + (emph ? ' emph' : '') + '">' + (label || md(t)) + '</div>' +
-      '<div class="prep-cell-wk">' + (label ? '' : wk(t)) + '</div></div>';
+      '</div>';
   }
 
   function countdownInner(proj) {
@@ -138,6 +145,7 @@
         temp = '<div>' + s.hi + '° / ' + s.lo + '°</div><div class="lug">' +
           window.WX.luggageOf(s).map(function (r) { return '<span title="' + r.text + '">' + r.icon + '</span>'; }).join('') + '</div>';
       }
+      if (res && d && d.main && !d.mainSum && !d.outOfRange && !d.noForecast) sub = '<span>這天暫時查不到天氣</span>';
       return '<div class="prep-wx-row' + (isToday ? ' today' : '') + '">' +
         '<div class="prep-wx-date">' + (date ? md(date) : '') + '<small>' + (date ? wk(date) : '') + ' · ' + dk + '</small></div>' +
         '<div style="min-width:0"><div class="prep-wx-place">' + esc(place) + '</div><div class="prep-wx-sub">' + sub + '</div></div>' +
@@ -188,11 +196,13 @@
       ? '<div id="prepCountdown">' + countdownInner(proj) + '</div>'
       : '<div class="card" style="padding:12px;font-size:13px;color:var(--sub-text)">請先在專案設定填寫出發日期，就會顯示倒數與天氣。</div>';
     var wx = proj.startDate
-      ? '<div class="card prep-sec open"><div class="prep-sec-head" onclick="togglePrepWx()"><span>🌤 旅遊天氣總覽</span>' +
-        '<span id="prepWxChev" style="font-size:16px;color:var(--brand-main);transition:transform .25s;display:inline-block;transform:' + (prepWxOpen ? 'rotate(0deg)' : 'rotate(-90deg)') + '">▾</span></div>' +
-        '<div id="prepWxBody" style="display:' + (prepWxOpen ? 'block' : 'none') + '">' +
-        '<div class="prep-legend"><span>🕶️ 太陽刺眼</span><span>☂️ 記得帶傘</span><span>🧥 注意保暖</span><span>🧴 建議防曬</span></div>' +
-        '<div id="prepWxRows">' + wxRowsHTML(proj, null) + '</div></div></div>'
+      ? '<div class="card prep-sec open" id="prepWxCard">' +
+        '<div class="prep-wx-stick">' +
+          '<div class="prep-sec-head" onclick="togglePrepWx()"><span>🌤 旅遊天氣總覽</span>' +
+          '<span id="prepWxChev" style="font-size:16px;color:var(--brand-main);display:inline-block;transition:transform .25s;transform:' + (prepWxOpen ? 'rotate(0deg)' : 'rotate(-90deg)') + '">▾</span></div>' +
+          '<div class="prep-legend" id="prepWxLegend" style="display:' + (prepWxOpen ? 'grid' : 'none') + '"><span>🕶️ 太陽刺眼</span><span>☂️ 記得帶傘</span><span>🧥 注意保暖</span><span>🧴 建議防曬</span></div>' +
+        '</div>' +
+        '<div id="prepWxBody" style="display:' + (prepWxOpen ? 'block' : 'none') + '"><div id="prepWxRows">' + wxRowsHTML(proj, null) + '</div></div></div>'
       : '';
 
     var pin = pinnedOf(proj);
@@ -224,6 +234,8 @@
     var chev = document.getElementById('prepWxChev');
     if (body) body.style.display = prepWxOpen ? 'block' : 'none';
     if (chev) chev.style.transform = prepWxOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+    var lg = document.getElementById('prepWxLegend');
+    if (lg) lg.style.display = prepWxOpen ? 'grid' : 'none';
   };
 
   window.openPrepNoteModal = function (key) {
