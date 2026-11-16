@@ -3,22 +3,22 @@
 (function () {
   var DAY = 864e5;
   var WMO = {
-    0: ['ti-sun', '晴'], 1: ['ti-sun', '晴'], 2: ['ti-cloud-sun', '晴時多雲'], 3: ['ti-cloud', '陰'],
-    45: ['ti-cloud-fog', '霧'], 48: ['ti-cloud-fog', '霧'],
-    51: ['ti-cloud-rain', '毛毛雨'], 53: ['ti-cloud-rain', '毛毛雨'], 55: ['ti-cloud-rain', '毛毛雨'],
-    56: ['ti-cloud-rain', '凍雨'], 57: ['ti-cloud-rain', '凍雨'],
-    61: ['ti-cloud-rain', '小雨'], 63: ['ti-cloud-rain', '雨'], 65: ['ti-cloud-rain', '大雨'],
-    66: ['ti-cloud-rain', '凍雨'], 67: ['ti-cloud-rain', '凍雨'],
-    71: ['ti-snowflake', '小雪'], 73: ['ti-snowflake', '雪'], 75: ['ti-snowflake', '大雪'], 77: ['ti-snowflake', '雪'],
-    80: ['ti-cloud-rain', '陣雨'], 81: ['ti-cloud-rain', '陣雨'], 82: ['ti-cloud-rain', '大陣雨'],
-    85: ['ti-snowflake', '陣雪'], 86: ['ti-snowflake', '陣雪'],
-    95: ['ti-cloud-storm', '雷雨'], 96: ['ti-cloud-storm', '雷雨'], 99: ['ti-cloud-storm', '雷雨']
+    0: ['☀️', '晴'], 1: ['☀️', '晴'], 2: ['⛅', '晴時多雲'], 3: ['☁️', '陰'],
+    45: ['🌫️', '霧'], 48: ['🌫️', '霧'],
+    51: ['🌧️', '毛毛雨'], 53: ['🌧️', '毛毛雨'], 55: ['🌧️', '毛毛雨'],
+    56: ['🌧️', '凍雨'], 57: ['🌧️', '凍雨'],
+    61: ['🌧️', '小雨'], 63: ['🌧️', '雨'], 65: ['🌧️', '大雨'],
+    66: ['🌧️', '凍雨'], 67: ['🌧️', '凍雨'],
+    71: ['❄️', '小雪'], 73: ['❄️', '雪'], 75: ['❄️', '大雪'], 77: ['❄️', '雪'],
+    80: ['🌧️', '陣雨'], 81: ['🌧️', '陣雨'], 82: ['🌧️', '大陣雨'],
+    85: ['❄️', '陣雪'], 86: ['❄️', '陣雪'],
+    95: ['⛈️', '雷雨'], 96: ['⛈️', '雷雨'], 99: ['⛈️', '雷雨']
   };
   var LUGGAGE = [
-    { icon: 'ti-sunglasses', text: '太陽刺眼', test: function (s) { return s.code <= 1 && s.hi >= 25; } },
-    { icon: 'ti-umbrella', text: '記得帶傘', test: function (s) { return s.rain >= 50; } },
-    { icon: 'ti-temperature-minus', text: '注意保暖', test: function (s) { return s.lo <= 10; } },
-    { icon: 'ti-sun', text: '建議防曬', test: function (s) { return s.hi >= 30; } }
+    { icon: '🕶️', text: '太陽刺眼', test: function (s) { return s.code <= 1 && s.hi >= 25; } },
+    { icon: '☂️', text: '記得帶傘', test: function (s) { return s.rain >= 50; } },
+    { icon: '🧥', text: '注意保暖', test: function (s) { return s.lo <= 10; } },
+    { icon: '🧴', text: '建議防曬', test: function (s) { return s.hi >= 30; } }
   ];
   var geoStore = {};
   try { geoStore = JSON.parse(localStorage.getItem('nt_geo') || '{}'); } catch (e) { geoStore = {}; }
@@ -72,11 +72,21 @@
     return fcMem[k];
   }
 
+  function nameCandidates(t) {
+    var s = String(t || '').trim();
+    var out = s ? [s] : [];
+    var short = s.replace(/(車站|站|機場|神社|寺|公園|美術館|博物館|市場|飯店|酒店|大學)$/, '');
+    if (short && short !== s) out.push(short);
+    return out;
+  }
+  function geocodeAny(names) {
+    return names.reduce(function (p, n) { return p.then(function (r) { return r || geocode(n); }); }, Promise.resolve(null));
+  }
   function spotCoord(spot) {
     if (spot && typeof spot.lat === 'number' && typeof spot.lon === 'number') {
       return Promise.resolve({ lat: spot.lat, lon: spot.lon, city: '' });
     }
-    return geocode(spot && spot.title);
+    return geocodeAny(nameCandidates(spot && spot.title));
   }
 
   function dist(a, b) { return Math.hypot(a.lat - b.lat, a.lon - b.lon); }
@@ -96,7 +106,7 @@
     if (!fc || !fc.daily || !date) return null;
     var i = fc.daily.time.indexOf(fmtDate(date));
     if (i < 0) return null;
-    var w = WMO[fc.daily.code[i]] || ['ti-cloud', '—'];
+    var w = WMO[fc.daily.code[i]] || ['☁️', '—'];
     return {
       code: fc.daily.code[i], icon: w[0], label: w[1],
       hi: Math.round(fc.daily.hi[i]), lo: Math.round(fc.daily.lo[i]), rain: Math.round(fc.daily.rain[i] || 0)
@@ -115,29 +125,40 @@
     return Promise.all(days.map(function (dk) {
       var spots = (it[dk] && it[dk].spots) || [];
       return Promise.all(spots.map(spotCoord)).then(function (coords) {
-        var titled = coords.map(function (c, i) { return c ? { lat: c.lat, lon: c.lon, city: c.city, title: spots[i].title } : null; });
-        var main = dayMain(titled);
-        var date = dayDate(proj, dk);
+        return {
+          dk: dk, count: spots.length, spots: spots,
+          coords: coords.map(function (c, i) { return c ? { lat: c.lat, lon: c.lon, city: c.city, title: spots[i].title } : null; })
+        };
+      });
+    })).then(function (all) {
+      // 備援：查不到座標的景點，沿用同一天前一個有座標的景點；都沒有則用整趟第一個有座標的景點
+      var anchor = null;
+      all.forEach(function (d) { d.coords.forEach(function (c) { if (!anchor && c) anchor = c; }); });
+      all.forEach(function (d) {
+        var last = null;
+        d.coords = d.coords.map(function (c) { if (c) { last = c; return c; } return last || anchor; });
+      });
+      return Promise.all(all.map(function (d) {
+        var date = dayDate(proj, d.dk);
+        var main = dayMain(d.coords);
         var mainFc = main ? forecast(main.lat, main.lon) : Promise.resolve(null);
-        var spotFcs = titled.map(function (c) {
+        var spotFcs = d.coords.map(function (c) {
           return c && main && dist(c, main) > 0.3 ? forecast(c.lat, c.lon) : Promise.resolve(null);
         });
         return Promise.all([mainFc, Promise.all(spotFcs)]).then(function (r) {
           var mainSum = r[0] ? summaryOf(r[0], date) : null;
           return {
-            date: date,
-            main: main,
-            mainSum: mainSum,
+            date: date, main: main, count: d.count, mainSum: mainSum,
             outOfRange: !!r[0] && !mainSum,
             noForecast: !r[0] && !!main,
-            spots: titled.map(function (c, i) {
+            spots: d.coords.map(function (c, i) {
               var differs = !!c && !!main && dist(c, main) > 0.3;
               return { coord: c, differs: differs, sum: differs && r[1][i] ? summaryOf(r[1][i], date) : null };
             })
           };
         });
-      });
-    })).then(function (list) {
+      }));
+    }).then(function (list) {
       var res = {};
       days.forEach(function (dk, i) { res[dk] = list[i]; });
       memo = { sig: sig, data: res };
@@ -146,7 +167,7 @@
   };
 
   function chipHTML(s, cls) {
-    return '<span class="wx-chip ' + (cls || '') + '"><i class="ti ' + s.icon + '" aria-hidden="true"></i>' + s.label + ' ' + s.hi + '°/' + s.lo + '°</span>';
+    return '<span class="wx-chip ' + (cls || '') + '">' + s.icon + '' + s.label + ' ' + s.hi + '°/' + s.lo + '°</span>';
   }
   function dayChipHTML(d) {
     if (!d) return '';

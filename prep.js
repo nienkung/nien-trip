@@ -41,6 +41,18 @@
     '.prep-add{display:flex;justify-content:center;padding:6px 0 16px}' +
     '.prep-add button{width:40px;height:40px;border-radius:50%;border:1px dashed var(--brand-main);background:transparent;color:var(--brand-main);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px}';
   document.head.appendChild(st);
+  var st2 = document.createElement('style');
+  st2.textContent =
+    '.prep-card-head{display:flex;align-items:center;gap:8px;cursor:pointer}' +
+    '.prep-card-head .prep-card-title{flex:1;min-width:0}' +
+    '.prep-chev{color:var(--brand-main);font-size:14px;padding:0 4px}' +
+    '.prep-grip{color:var(--brand-main);font-size:18px;cursor:grab;touch-action:none;padding:0 4px;line-height:1}' +
+    '.prep-lock{font-size:14px}' +
+    '.prep-card-detail{padding-top:8px}' +
+    '.prep-card-acts{display:flex;gap:8px;margin-top:10px}' +
+    '.prep-btn{font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;border:1px solid var(--brand-border);background:#fff;color:var(--brand-dark);cursor:pointer}' +
+    '.prep-btn.danger{color:#c0392b;border-color:#f0c4bd}';
+  document.head.appendChild(st2);
 
   function esc(s) { return window.escapeHtml ? window.escapeHtml(s) : String(s == null ? '' : s); }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -77,7 +89,7 @@
   }
 
   function cdCell(t, icon, emph, label) {
-    return '<div class="prep-cell"><div class="prep-cell-icon">' + (icon ? '<i class="ti ' + icon + '" aria-hidden="true"></i>' : '') + '</div>' +
+    return '<div class="prep-cell"><div class="prep-cell-icon">' + (icon || '') + '</div>' +
       '<div class="prep-cell-date' + (emph ? ' emph' : '') + '">' + (label || md(t)) + '</div>' +
       '<div class="prep-cell-wk">' + (label ? '' : wk(t)) + '</div></div>';
   }
@@ -94,14 +106,14 @@
       var r = Math.round((S - T) / DAY);
       head = '距離出發還有 ' + r + ' 天';
       if (r + 1 <= 5) {
-        for (var t = T; t <= S; t += DAY) cells += cdCell(t, t === S ? 'ti-luggage' : '', t === T || t === S);
+        for (var t = T; t <= S; t += DAY) cells += cdCell(t, t === S ? '🧳' : '', t === T || t === S);
       } else {
-        cells = cdCell(T, '', true) + cdCell(T + DAY, '', false) + cdCell(0, '', false, '…') + cdCell(S - DAY, '', false) + cdCell(S, 'ti-luggage', true);
+        cells = cdCell(T, '', true) + cdCell(T + DAY, '', false) + cdCell(0, '', false, '…') + cdCell(S - DAY, '', false) + cdCell(S, '🧳', true);
       }
     } else {
       head = '旅行中';
       for (var u = T, n = 0; u <= E && n < 5; u += DAY, n++) {
-        cells += cdCell(u, u === T ? 'ti-luggage' : (u === E ? 'ti-plane' : ''), u === T || u === E);
+        cells += cdCell(u, u === T ? '🧳' : (u === E ? '✈️' : ''), u === T || u === E);
       }
     }
     return '<div class="prep-cd-head">' + head + '</div><div class="prep-cd-cells">' + cells + '</div>';
@@ -117,14 +129,14 @@
       var place = d && d.main ? (d.main.city || d.main.title) : '尚未設定地點';
       var sub, temp = '';
       if (!res) sub = '<span>查詢中…</span>';
-      else if (!d || !d.main) sub = '<span>景點未有地點資料</span>';
+      else if (!d || !d.main) sub = '<span>' + (d && d.count ? '景點查不到地點，請用地點搜尋重新加入' : '這天還沒有景點，加入後會顯示天氣') + '</span>';
       else if (d.noForecast) sub = '<span>天氣暫時無法取得</span>';
       else if (d.outOfRange) sub = '<span>尚未開放預報（16 天內才有）</span>';
       else if (d.mainSum) {
         var s = d.mainSum;
-        sub = '<span><i class="ti ' + s.icon + '" aria-hidden="true"></i>' + s.label + ' · 降雨 ' + s.rain + '%</span>';
+        sub = '<span>' + s.icon + ' ' + s.label + ' · 降雨 ' + s.rain + '%</span>';
         temp = '<div>' + s.hi + '° / ' + s.lo + '°</div><div class="lug">' +
-          window.WX.luggageOf(s).map(function (r) { return '<i class="ti ' + r.icon + '" title="' + r.text + '" aria-label="' + r.text + '"></i>'; }).join('') + '</div>';
+          window.WX.luggageOf(s).map(function (r) { return '<span title="' + r.text + '">' + r.icon + '</span>'; }).join('') + '</div>';
       }
       return '<div class="prep-wx-row' + (isToday ? ' today' : '') + '">' +
         '<div class="prep-wx-date">' + (date ? md(date) : '') + '<small>' + (date ? wk(date) : '') + ' · ' + dk + '</small></div>' +
@@ -133,18 +145,23 @@
     }).join('');
   }
 
-  function cardHTML(key, item, pinned, canEdit, orderIdx) {
-    var grip = '';
-    if (pinned) grip = '<i class="ti ti-lock" style="color:var(--brand-main);font-size:15px;margin-top:2px" aria-hidden="true"></i>';
-    else if (canEdit) grip = '<i class="ti ti-grip-vertical prep-grip" aria-label="拖曳排序" title="拖曳排序"></i>';
+  var openSet = {};
+  function cardHTML(key, item, pinned, canEdit) {
+    var isOpen = !!openSet[key];
+    var lead = pinned
+      ? '<span class="prep-lock" title="固定項目" aria-label="固定項目">🔒</span>'
+      : (canEdit ? '<span class="prep-grip" title="拖曳排序" aria-label="拖曳排序">⠿</span>' : '');
+    var text = item.body
+      ? '<div class="prep-card-text">' + esc(item.body) + '</div>'
+      : '<div class="prep-card-text" style="opacity:.5">尚未填寫，點下方「編輯」新增內容</div>';
     var acts = canEdit
-      ? '<button class="prep-act" aria-label="編輯" onclick="openPrepNoteModal(\'' + key + '\')"><i class="ti ti-pencil" aria-hidden="true"></i></button>' +
-        (pinned ? '' : '<button class="prep-act" aria-label="刪除" onclick="deletePrepNote(\'' + key + '\')"><i class="ti ti-trash" aria-hidden="true"></i></button>')
+      ? '<div class="prep-card-acts"><button class="prep-btn" onclick="openPrepNoteModal(\'' + key + '\')">✏️ 編輯</button>' +
+        (pinned ? '' : '<button class="prep-btn danger" onclick="deletePrepNote(\'' + key + '\')">🗑️ 刪除</button>') + '</div>'
       : '';
-    return '<div class="prep-card' + (pinned ? ' pinned' : '') + '"' + (pinned ? '' : ' data-note="' + key + '"') + '>' + grip +
-      '<div class="prep-card-body"><div class="prep-card-title">' + esc(item.title) + '</div>' +
-      (item.body ? '<div class="prep-card-text">' + esc(item.body) + '</div>' : '') + '</div>' +
-      '<div style="display:flex;flex-direction:column;gap:2px">' + acts + '</div></div>';
+    return '<div class="prep-card' + (pinned ? ' pinned' : '') + '"' + (pinned ? '' : ' data-note="' + key + '"') + ' data-key="' + key + '">' +
+      '<div class="prep-card-head">' + lead + '<div class="prep-card-title">' + esc(item.title) + '</div>' +
+      '<span class="prep-chev">' + (isOpen ? '▴' : '▾') + '</span></div>' +
+      '<div class="prep-card-detail" style="display:' + (isOpen ? 'block' : 'none') + '">' + text + acts + '</div></div>';
   }
 
   function legacyHTML(proj) {
@@ -155,7 +172,7 @@
         var href = s.mapUrl || ('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.title || ''));
         return '<div class="prep-card"><div class="prep-card-body"><div class="prep-card-title">' + esc(s.title) + '</div>' +
           (s.desc ? '<div class="prep-card-text">' + esc(s.desc) + '</div>' : '') +
-          '</div><a href="' + esc(href) + '" target="_blank" rel="noopener" class="prep-act" aria-label="地圖"><i class="ti ti-map-pin" aria-hidden="true"></i></a></div>';
+          '</div><a href="' + esc(href) + '" target="_blank" rel="noopener" class="prep-act" aria-label="地圖">📍</a></div>';
       }).join('');
   }
 
@@ -172,9 +189,9 @@
       : '<div class="card" style="padding:12px;font-size:13px;color:var(--sub-text)">請先在專案設定填寫出發日期，就會顯示倒數與天氣。</div>';
     var wx = proj.startDate
       ? '<div class="card prep-sec open"><div class="prep-sec-head" onclick="togglePrepWx()"><span>🌤 旅遊天氣總覽</span>' +
-        '<i id="prepWxChev" class="ti ti-chevron-down" style="font-size:18px;color:var(--brand-main);transition:transform .25s;transform:' + (prepWxOpen ? 'rotate(0deg)' : 'rotate(-90deg)') + '" aria-hidden="true"></i></div>' +
+        '<span id="prepWxChev" style="font-size:16px;color:var(--brand-main);transition:transform .25s;display:inline-block;transform:' + (prepWxOpen ? 'rotate(0deg)' : 'rotate(-90deg)') + '">▾</span></div>' +
         '<div id="prepWxBody" style="display:' + (prepWxOpen ? 'block' : 'none') + '">' +
-        '<div class="prep-legend"><span><i class="ti ti-sunglasses" aria-hidden="true"></i> 太陽刺眼</span><span><i class="ti ti-umbrella" aria-hidden="true"></i> 記得帶傘</span><span><i class="ti ti-temperature-minus" aria-hidden="true"></i> 注意保暖</span><span><i class="ti ti-sun" aria-hidden="true"></i> 建議防曬</span></div>' +
+        '<div class="prep-legend"><span>🕶️ 太陽刺眼</span><span>☂️ 記得帶傘</span><span>🧥 注意保暖</span><span>🧴 建議防曬</span></div>' +
         '<div id="prepWxRows">' + wxRowsHTML(proj, null) + '</div></div></div>'
       : '';
 
@@ -185,7 +202,7 @@
       cardHTML('pin:fx', pin.fx, true, canEdit) +
       notes.map(function (e) { return cardHTML(e[0], e[1], false, canEdit); }).join('') +
       '</div>' +
-      (canEdit ? '<div class="prep-add"><button onclick="openPrepNoteModal(\'\')" aria-label="新增備註" title="新增備註"><i class="ti ti-plus" aria-hidden="true"></i></button></div>' : '');
+      (canEdit ? '<div class="prep-add"><button onclick="openPrepNoteModal(\'\')" aria-label="新增備註" title="新增備註">+</button></div>' : '');
 
     box.innerHTML = cd + wx +
       '<div class="card prep-sec open"><div class="prep-sec-head"><span>📋 行前準備清單</span></div>' + list + legacyHTML(proj) + '</div>';
@@ -290,6 +307,16 @@
     var list = document.getElementById('prepList');
     if (!list || list.dataset.bound === '1') return;
     list.dataset.bound = '1';
+    list.addEventListener('click', function (e) {
+      if (e.target.closest('.prep-grip') || e.target.closest('.prep-card-acts')) return;
+      var h = e.target.closest('.prep-card-head');
+      if (!h) return;
+      var card = h.parentNode;
+      var k = card.getAttribute('data-key');
+      openSet[k] = !openSet[k];
+      card.querySelector('.prep-card-detail').style.display = openSet[k] ? 'block' : 'none';
+      h.querySelector('.prep-chev').textContent = openSet[k] ? '▴' : '▾';
+    });
     list.addEventListener('pointerdown', function (e) {
       var g = e.target.closest('.prep-grip');
       if (!g || !window.canEditContent(window.activeProjectData)) return;
