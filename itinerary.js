@@ -552,9 +552,10 @@ window.switchProjectTab = function(tabName) {
 // 依目前分頁與編輯權限，顯示對應的懸浮動作鈕（記帳 / 景點），同一時間只會有一個
 window.updateProjectFabs = function() {
   const tab = window._currentTab || 'itinerary';
+  const inProject = window._currentView === 'project'; // 離開專案頁（大廳／登入）一律隱藏
   const canEdit = window.activeProjectData && window.canEditContent(window.activeProjectData);
-  const showExp = tab === 'expense' && canEdit;
-  const showSpot = tab === 'itinerary' && canEdit;
+  const showExp = inProject && tab === 'expense' && canEdit;
+  const showSpot = inProject && tab === 'itinerary' && canEdit;
   const expFab = document.getElementById('addExpenseFab');
   const spotFab = document.getElementById('addSpotFab');
   if (expFab) expFab.style.display = showExp ? 'flex' : 'none';

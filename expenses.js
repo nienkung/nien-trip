@@ -338,6 +338,8 @@ window.renderExpenses = function() {
   const daysList = window.getDynamicProjectDays(window.activeProjectData);
   const canEdit = window.canEditContent(window.activeProjectData);
   const openMap = expOpenMap();
+  const expRateBar = document.getElementById('expRateBar');
+  if (expRateBar) expRateBar.innerHTML = window.rateBarHTML();
 
   let html = '';
   let totalGroupTWD = 0;
@@ -614,9 +616,7 @@ window.renderSettlement = function() {
     netMap[m] = paidMap[m] - shouldPayMap[m];
   });
 
-  const rateNote = window.ratesUpdatedAt
-    ? `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin:4px 0 10px;">💱 即時匯率（更新於 ${new Date(window.ratesUpdatedAt).toLocaleString('zh-TW')}）</div>`
-    : `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin:4px 0 10px;">💱 使用內建備援匯率</div>`;
+  const rateNote = `<div id="settlementRateBar">${window.rateBarHTML()}</div>`;
 
   let html = `<div style="font-size:11px; color:var(--sub-text); text-align:center; margin-bottom:4px;">🔒 本頁為結算總覽（唯讀），僅可勾選轉帳完成狀態</div>` + rateNote + `
     <div class="card open" style="margin-top:4px;">
