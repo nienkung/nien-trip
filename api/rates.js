@@ -1,15 +1,20 @@
 // /api/rates — 即時匯率代理（每日快取）
 // 來源：open.er-api.com（免費、免金鑰）。回傳「1 單位外幣 = 幾台幣」的 rates 表。
+// 一般查詢走 6 小時快取；帶 ?refresh=… 時強制重抓，但距離上次抓取不足 5 分鐘則沿用快取，避免連續狂按。
+// 回傳欄位：fetchedAt＝本次取得資料的時間；updatedAt＝來源資料的更新時間。
 
 let cache = { data: null, ts: 0 };
-const TTL = 1000 * 60 * 60 * 6; // 6 小時
+const TTL = 1000 * 60 * 60 * 6;      // 6 小時
+const MIN_FORCE_GAP = 1000 * 60 * 5; // 手動重抓的最短間隔 5 分鐘
 
 export default async function handler(req, res) {
   const now = Date.now();
+  const force = !!(req.query && req.query.refresh !== undefined);
+  const age = now - cache.ts;
 
-  // 命中快取（warm instance）
-  if (cache.data && (now - cache.ts) < TTL) {
-    res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
+  const useCache = !!cache.data && age < TTL && !(force && age >= MIN_FORCE_GAP);
+  if (useCache) {
+    res.setHeader('Cache-Control', force ? 'no-store' : 's-maxage=21600, stale-while-revalidate=86400');
     return res.status(200).json(cache.data);
   }
 
@@ -33,6 +38,7 @@ export default async function handler(req, res) {
     const out = {
       base: 'TWD',
       rates: {},
+      fetchedAt: now,
       updatedAt: j.time_last_update_unix ? j.time_last_update_unix * 1000 : now,
       source: 'open.er-api.com'
     };
@@ -44,7 +50,7 @@ export default async function handler(req, res) {
     out.rates.TWD = 1.0;
 
     cache = { data: out, ts: now };
-    res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
+    res.setHeader('Cache-Control', force ? 'no-store' : 's-maxage=21600, stale-while-revalidate=86400');
     return res.status(200).json(out);
 
   } catch (e) {

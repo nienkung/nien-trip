@@ -78,24 +78,67 @@ window.getProjectMainCurrency = function(proj) {
 };
 
 // 載入即時匯率（後端每日快取代理 /api/rates），失敗則沿用備援值
-window.ratesUpdatedAt = null;
-window.loadLiveRates = async function() {
+window.ratesUpdatedAt = null;   // 本機最後一次成功取得匯率的時間
+window.ratesSourceAt = null;    // 匯率來源的資料日期（open.er-api 的 time_last_update）
+window.ratesStatus = 'idle';    // idle | loading | ok | error
+window.loadLiveRates = async function(opts) {
+  const force = !!(opts && opts.force);
+  window.ratesStatus = 'loading';
+  window.renderRateBars();
   try {
-    const res = await fetch('/api/rates');
-    if (!res.ok) return;
+    // 手動更新時加上時間戳，避免 CDN 直接回傳舊快取
+    const url = force ? `/api/rates?refresh=${Date.now()}` : '/api/rates';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    if (data && data.rates) {
-      Object.assign(window.EXCHANGE_RATES, data.rates);
-      window.EXCHANGE_RATES.TWD = 1.0;
-      window.ratesUpdatedAt = data.updatedAt || Date.now();
-      if (window.activeProjectData) {
-        if (window.renderExpenses) window.renderExpenses();
-        if (window.renderSettlement) window.renderSettlement();
-      }
-    }
+    if (!data || !data.rates) throw new Error('匯率資料格式錯誤');
+    Object.assign(window.EXCHANGE_RATES, data.rates);
+    window.EXCHANGE_RATES.TWD = 1.0;
+    window.ratesUpdatedAt = data.fetchedAt || Date.now();
+    window.ratesSourceAt = data.updatedAt || null;
+    window.ratesStatus = 'ok';
   } catch (e) {
-    console.warn('即時匯率載入失敗，改用內建備援匯率：', e);
+    console.warn('即時匯率載入失敗：', e);
+    window.ratesStatus = 'error';
   }
+  if (window.activeProjectData) {
+    if (window.renderExpenses) window.renderExpenses();
+    if (window.renderSettlement) window.renderSettlement();
+  }
+  window.renderRateBars();
+};
+
+window.refreshRatesManual = function() {
+  return window.loadLiveRates({ force: true });
+};
+
+// 匯率時間列（記帳頁與分帳頁共用）：顯示最後更新時間＋小型更新按鈕
+window.rateBarHTML = function() {
+  const st = window.ratesStatus;
+  const fmt = (ts) => new Date(ts).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const t = window.ratesUpdatedAt ? fmt(window.ratesUpdatedAt) : '';
+  const src = window.ratesSourceAt ? new Date(window.ratesSourceAt).toLocaleDateString('zh-TW') : '';
+  let label;
+  if (st === 'loading') label = '💱 匯率查詢中…';
+  else if (st === 'error') label = t ? `⚠️ 更新失敗，沿用 ${t} 的匯率` : '⚠️ 匯率更新失敗，使用內建備援匯率';
+  else if (!t) label = '💱 使用內建備援匯率';
+  else label = `💱 匯率更新於 ${t}${src ? `（資料日 ${src}）` : ''}`;
+  const busy = st === 'loading';
+  return `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--sub-text); margin:4px 0 10px;">
+      <span>${label}</span>
+      <button type="button" onclick="window.refreshRatesManual()" ${busy ? 'disabled' : ''}
+        style="flex-shrink:0; background:var(--brand-light); color:var(--brand-dark); border:1px solid var(--brand-border); border-radius:999px; padding:3px 10px; font-size:11px; font-weight:700; cursor:${busy ? 'default' : 'pointer'}; opacity:${busy ? '.6' : '1'};">
+        ${busy ? '查詢中…' : '↻ 更新匯率'}
+      </button>
+    </div>`;
+};
+
+window.renderRateBars = function() {
+  ['expRateBar', 'settlementRateBar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = window.rateBarHTML();
+  });
 };
 
 // ===== 成員資料正規化（雙清單：members 有 email / externalPeople 只有名字）=====
@@ -265,6 +308,7 @@ window.switchView = function(viewId) {
   const target = document.getElementById('view-' + viewId);
   if (target) target.classList.add('active');
   window._currentView = viewId;
+  if (window.updateProjectFabs) window.updateProjectFabs();
   window.applyTheme(viewId === 'project' && window.activeProjectData ? window.activeProjectData.theme : null);
   // 進入專案頁後，待畫面繪製再量測導覽列高度（供分頁表頭 sticky 定位）
   if (viewId === 'project' && window.syncNavbarHeight) {
