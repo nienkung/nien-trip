@@ -273,6 +273,7 @@ window.renderItineraryFromJSON = function(data) {
       body += prepNotesHTML(proj.prepNotes, canEdit);
       if (spots.length) body += spotListHTML(dayKey, spots, canEdit);
     } else {
+      body += cityEditorHTML(dayKey, day.cities || [], canEdit);
       if (canEdit) {
         body += `
           <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
@@ -290,6 +291,7 @@ window.renderItineraryFromJSON = function(data) {
           <div>
             <div class="card-title">${window.escapeHtml(title)}</div>
             <div class="card-subtitle">${subtitle}</div>
+            ${isPrep ? '' : themeBlockHTML(dayKey, day.theme, canEdit) + (timeOrderBroken(spots) ? '<div><span class="order-warn">⚠ 景點時間與順序不一致，請確認</span></div>' : '')}
           <div class="wx-day-slot" data-day="${dayKey}"></div>
           </div>
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
@@ -444,10 +446,13 @@ window.saveSpotFromModal = function() {
     spotData.thumbY = clampPct(document.getElementById('spotThumbY').value);
   }
 
-  if (index >= 0) {
-    window.activeProjectData.itinerary[dayKey].spots[index] = spotData;
+  const spotList = window.activeProjectData.itinerary[dayKey].spots;
+  const timeChanged = index >= 0 && normTime(prevSpot && prevSpot.time) !== normTime(time);
+  if (index >= 0 && !timeChanged) {
+    spotList[index] = spotData;
   } else {
-    window.activeProjectData.itinerary[dayKey].spots.push(spotData);
+    if (index >= 0) spotList.splice(index, 1);
+    insertSpotByTime(spotList, spotData);
   }
 
   if (window.dbSet && window.dbRef && window.db) {
@@ -579,3 +584,204 @@ window.updateProjectFabs = function() {
   if (spotFab) spotFab.style.display = showSpot ? 'flex' : 'none';
   document.body.classList.toggle('has-fab', !!(showExp || showSpot));
 };
+
+
+// ===== 時間排序、每日主軸、每日主要城市 =====
+(function () {
+  const st = document.createElement('style');
+  st.textContent =
+    '.day-theme-input{display:block;width:100%;max-width:360px;margin-top:6px;padding:4px 8px;font-size:13px;border:1px dashed var(--brand-border);border-radius:8px;background:#fff;color:var(--brand-dark)}' +
+    '.city-editor{margin-bottom:12px;padding:10px;border:1px solid var(--brand-border);border-radius:12px;background:#fff}' +
+    '.city-editor-title{font-size:12px;font-weight:800;color:var(--brand-main);margin-bottom:8px}' +
+    '.city-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}' +
+    '.city-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:var(--brand-light);border:1px solid var(--brand-border);font-size:13px;font-weight:700;color:var(--brand-dark)}' +
+    '.city-chip button{background:none;border:none;color:var(--brand-main);cursor:pointer;font-size:14px;padding:0 0 0 2px}' +
+    '.city-add{padding:4px 12px;border-radius:999px;border:1px dashed var(--brand-main);background:transparent;color:var(--brand-main);font-size:13px;font-weight:700;cursor:pointer}' +
+    '.order-warn{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;color:#9a6700;background:#fff4d6;border:1px solid #f1d28a;border-radius:999px;padding:2px 8px}';
+  document.head.appendChild(st);
+})();
+
+function normTime(t) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim());
+  return m ? m[1].padStart(2, '0') + ':' + m[2] : '';
+}
+
+// 有時間的景點若出現在較早時間的景點之前，回傳 true（只提示，不阻擋）
+function timeOrderBroken(spots) {
+  let max = '';
+  for (const s of spots || []) {
+    const t = normTime(s.time);
+    if (!t) continue;
+    if (max && t < max) return true;
+    if (t > max) max = t;
+  }
+  return false;
+}
+
+// 新景點依時間插入到第一個時間更晚的景點前面；沒有時間的放最後
+function insertSpotByTime(list, item) {
+  const t = normTime(item.time);
+  if (t) {
+    const idx = list.findIndex(s => { const st = normTime(s.time); return st && st > t; });
+    if (idx >= 0) { list.splice(idx, 0, item); return; }
+  }
+  list.push(item);
+}
+
+// 主軸：淡色細框，點擊開編輯視窗
+function themeBlockHTML(dayKey, theme, canEdit) {
+  if (!canEdit && !theme) return '';
+  const attr = canEdit ? `onclick="event.stopPropagation(); openThemeModal('${dayKey}')"` : '';
+  const text = theme ? `<span>${window.escapeHtml(theme)}</span>` : '<span class="day-theme-blank">點擊設定當日主軸</span>';
+  return `<div class="day-theme-box" ${attr}>${text}</div>`;
+}
+
+// 城市：淡色細框，點擊開城市編輯視窗
+function cityEditorHTML(dayKey, cities, canEdit) {
+  const list = cities || [];
+  const chips = list.map(c => `<span class="city-chip">📍${window.escapeHtml(c.name)}</span>`).join('');
+  const blank = list.length ? '' : `<span class="city-blank">${canEdit ? '點擊新增主要城市（最多 3 個，天氣依此查詢）' : '團員尚未設定城市'}</span>`;
+  const attr = canEdit ? `onclick="openCityModal('${dayKey}')"` : '';
+  return `<div class="city-editor" ${attr}><div class="city-editor-title">📍 今天主要會待的城市</div><div class="city-chips">${chips}${blank}</div></div>`;
+}
+
+window.openThemeModal = function (dayKey) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
+  window._themeDay = dayKey;
+  const it = window.activeProjectData.itinerary || {};
+  document.getElementById('themeModalInput').value = (it[dayKey] && it[dayKey].theme) || '';
+  document.getElementById('themeModal').style.display = 'flex';
+  setTimeout(() => { const el = document.getElementById('themeModalInput'); if (el) el.focus(); }, 50);
+};
+
+window.closeThemeModal = function () {
+  const m = document.getElementById('themeModal');
+  if (m) m.style.display = 'none';
+};
+
+window.saveThemeFromModal = function () {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
+  const dayKey = window._themeDay;
+  const it = window.activeProjectData.itinerary || (window.activeProjectData.itinerary = {});
+  if (!it[dayKey]) it[dayKey] = { title: dayKey, spots: [] };
+  it[dayKey].theme = document.getElementById('themeModalInput').value.trim().slice(0, 40);
+  closeThemeModal();
+  persistItinerary(dayKey);
+};
+
+function persistItinerary(dayKey) {
+  const proj = window.activeProjectData;
+  if (!proj) return;
+  itinOpenState()[dayKey] = true;
+  if (window.dbSet && window.dbRef && window.db) {
+    window.dbSet(window.dbRef(window.db, `projects/${window.activeProjectId}/itinerary`), proj.itinerary)
+      .then(() => {
+        window.renderItineraryFromJSON(proj.itinerary);
+        const modal = document.getElementById('cityModal');
+        if (window._cityDay === dayKey && modal && modal.style.display === 'flex') renderCityList(dayKey);
+      })
+      .catch(err => alert('儲存失敗：' + err.message));
+  }
+}
+
+window.openCityModal = function (dayKey) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
+  window._cityDay = dayKey;
+  document.getElementById('cityModal').style.display = 'flex';
+  renderCityList(dayKey);
+  mountCityAutocomplete();
+};
+
+// 城市編輯視窗內：列出已選城市（可移除），滿 3 個就隱藏搜尋
+function renderCityList(dayKey) {
+  const box = document.getElementById('cityListBox');
+  const addGroup = document.getElementById('cityAddGroup');
+  if (!box) return;
+  const day = ((window.activeProjectData || {}).itinerary || {})[dayKey] || {};
+  const list = day.cities || [];
+  box.innerHTML = list.length
+    ? `<div class="city-chips">${list.map((c, i) => `<span class="city-chip">📍${window.escapeHtml(c.name)}<button onclick="removeDayCity('${dayKey}', ${i})" aria-label="移除">✕</button></span>`).join('')}</div>`
+    : '<p style="font-size:12px; color:var(--sub-text); margin:0 0 8px;">還沒有城市，請用下方搜尋加入</p>';
+  if (addGroup) addGroup.style.display = list.length >= 3 ? 'none' : '';
+}
+
+window.closeCityModal = function () {
+  const m = document.getElementById('cityModal');
+  if (m) m.style.display = 'none';
+};
+
+async function mountCityAutocomplete() {
+  const container = document.getElementById('cityPlaceContainer');
+  const hint = document.getElementById('cityPlaceHint');
+  if (!container) return;
+  container.innerHTML = '';
+  if (hint) hint.textContent = '';
+  const lib = await ensurePlacesLib();
+  if (!lib || !lib.PlaceAutocompleteElement) {
+    if (hint) hint.textContent = '（Google 地點搜尋目前無法使用）';
+    return;
+  }
+  let pac;
+  try { pac = new lib.PlaceAutocompleteElement(); } catch (e) {
+    if (hint) hint.textContent = '（Google 地點搜尋初始化失敗）';
+    return;
+  }
+  pac.style.width = '100%';
+  container.appendChild(pac);
+  pac.addEventListener('gmp-select', async (event) => {
+    try {
+      const pred = event.placePrediction;
+      if (!pred) return;
+      const place = pred.toPlace();
+      await place.fetchFields({ fields: ['displayName', 'location', 'formattedAddress'] });
+      if (!place.location) { if (hint) hint.textContent = '這個結果沒有座標，請換一個'; return; }
+      addDayCity(window._cityDay, {
+        name: place.displayName || place.formattedAddress || '',
+        lat: place.location.lat(),
+        lon: place.location.lng()
+      });
+    } catch (e) { console.warn('城市取得失敗：', e); }
+  });
+}
+
+function addDayCity(dayKey, city) {
+  const proj = window.activeProjectData;
+  if (!proj || !city.name) return;
+  const it = proj.itinerary || (proj.itinerary = {});
+  if (!it[dayKey]) it[dayKey] = { title: dayKey, spots: [] };
+  const list = it[dayKey].cities || (it[dayKey].cities = []);
+  if (list.length >= 3) return alert('每天最多 3 個城市');
+  if (list.some(c => c.name === city.name)) return alert('這個城市已加入');
+  list.push(city);
+  persistItinerary(dayKey);
+}
+
+window.removeDayCity = function (dayKey, i) {
+  if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限。');
+  if (!confirm('確定要移除這個城市嗎？')) return;
+  const list = window.activeProjectData.itinerary[dayKey].cities || [];
+  list.splice(i, 1);
+  persistItinerary(dayKey);
+};
+
+(function () {
+  const st = document.createElement('style');
+  st.textContent =
+    '.day-theme-box{margin-top:8px;padding:8px 12px;max-width:360px;border-radius:10px;background:var(--brand-light);border:1.5px solid var(--brand-border);font-size:14px;font-weight:800;color:var(--brand-dark);display:flex;justify-content:space-between;align-items:center;gap:8px}' +
+    '.day-theme-empty{margin-top:8px;padding:6px 12px;border-radius:10px;border:1px dashed var(--brand-border);background:transparent;color:var(--brand-main);font-size:12px;font-weight:700;cursor:pointer}' +
+    '.mini-edit{background:none;border:none;color:var(--brand-main);cursor:pointer;font-size:12px;font-weight:700;padding:2px 6px;white-space:nowrap}' +
+    '.city-editor{border:1.5px solid var(--brand-border)}' +
+    '.city-editor-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}';
+  document.head.appendChild(st);
+})();
+
+(function () {
+  const st = document.createElement('style');
+  st.textContent =
+    '.day-theme-box{margin-top:8px;padding:6px 12px;max-width:360px;border-radius:10px;border:none;background:transparent;font-size:14px;font-weight:600;color:var(--brand-dark);cursor:pointer;padding:6px 0}' +
+    '.day-theme-blank{font-size:12px;font-weight:500;color:var(--sub-text)}' +
+    '.city-editor{margin-bottom:12px;padding:6px 0;border:none;border-radius:12px;background:transparent;cursor:pointer}' +
+    '.city-editor-title{font-size:11px;font-weight:600;color:var(--sub-text);margin-bottom:6px}' +
+    '.city-blank{font-size:12px;color:var(--sub-text)}';
+  document.head.appendChild(st);
+})();

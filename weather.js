@@ -20,15 +20,14 @@
     { icon: '🧥', text: '注意保暖', test: function (s) { return s.lo <= 10; } },
     { icon: '🧴', text: '建議防曬', test: function (s) { return s.hi >= 30; } }
   ];
-  var geoStore = {};
-  try { geoStore = JSON.parse(localStorage.getItem('nt_geo') || '{}'); } catch (e) { geoStore = {}; }
-  var geoMem = {}, fcMem = {}, memo = { sig: '', data: null };
+  var fcMem = {}, memo = { sig: '', data: null };
 
   var st = document.createElement('style');
   st.textContent = '.wx-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--brand-dark);background:var(--brand-light);border:1px solid var(--brand-border);border-radius:999px;padding:2px 8px;margin-top:6px;white-space:nowrap}' +
     '.wx-chip i{color:var(--brand-main);font-size:14px}.wx-muted{color:var(--sub-text);font-weight:600}.wx-spot{margin-top:6px}';
   document.head.appendChild(st);
 
+  function esc(s) { return window.escapeHtml ? window.escapeHtml(s) : String(s == null ? '' : s); }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function fmtDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   function dayNumber(dk) { var m = /^D(\d+)$/.exec(dk || ''); return m ? +m[1] : 0; }
@@ -42,25 +41,6 @@
     if (!proj) return [];
     return window.getDynamicProjectDays(proj).filter(function (dk) { return dayNumber(dk) > 0; });
   }
-  function saveGeo() { try { localStorage.setItem('nt_geo', JSON.stringify(geoStore)); } catch (e) {} }
-
-  function geocode(name) {
-    var key = String(name || '').trim();
-    if (!key) return Promise.resolve(null);
-    if (geoStore[key]) return Promise.resolve(geoStore[key]);
-    if (!(key in geoMem)) {
-      geoMem[key] = fetch('/api/geocode?q=' + encodeURIComponent(key))
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) {
-          var v = j && typeof j.lat === 'number' ? { lat: j.lat, lon: j.lon, city: j.city || '' } : null;
-          if (v) { geoStore[key] = v; saveGeo(); }
-          return v;
-        })
-        .catch(function () { return null; });
-    }
-    return geoMem[key];
-  }
-
   function forecast(lat, lon) {
     var k = lat.toFixed(2) + ',' + lon.toFixed(2);
     if (!fcMem[k]) {
@@ -72,21 +52,12 @@
     return fcMem[k];
   }
 
-  function nameCandidates(t) {
-    var s = String(t || '').trim();
-    var out = s ? [s] : [];
-    var short = s.replace(/(車站|站|機場|神社|寺|公園|美術館|博物館|市場|飯店|酒店|大學)$/, '');
-    if (short && short !== s) out.push(short);
-    return out;
-  }
-  function geocodeAny(names) {
-    return names.reduce(function (p, n) { return p.then(function (r) { return r || geocode(n); }); }, Promise.resolve(null));
-  }
+  // 只使用 Google 地點搜尋存下的座標（spot.lat / spot.lon），不用景點名稱猜座標
   function spotCoord(spot) {
     if (spot && typeof spot.lat === 'number' && typeof spot.lon === 'number') {
       return Promise.resolve({ lat: spot.lat, lon: spot.lon, city: '' });
     }
-    return geocodeAny(nameCandidates(spot && spot.title));
+    return Promise.resolve(null);
   }
 
   function dist(a, b) { return Math.hypot(a.lat - b.lat, a.lon - b.lon); }
@@ -122,47 +93,21 @@
   window.loadTripWeather = function (proj) {
     if (!proj || !proj.startDate) return Promise.resolve(null);
     var days = tripDays(proj), it = proj.itinerary || {};
-    var sig = JSON.stringify([proj.startDate, days.map(function (dk) {
-      return ((it[dk] && it[dk].spots) || []).map(function (s) { return [s.title, s.lat, s.lon]; });
-    })]);
+    var sig = JSON.stringify([proj.startDate, days.map(function (dk) { return (it[dk] && it[dk].cities) || []; })]);
     if (memo.sig === sig && memo.data) return Promise.resolve(memo.data);
     return Promise.all(days.map(function (dk) {
-      var spots = (it[dk] && it[dk].spots) || [];
-      return Promise.all(spots.map(spotCoord)).then(function (coords) {
+      var date = dayDate(proj, dk);
+      var cities = ((it[dk] && it[dk].cities) || []).filter(function (c) { return c && typeof c.lat === 'number'; });
+      return Promise.all(cities.map(function (c) { return forecast(c.lat, c.lon); })).then(function (frs) {
         return {
-          dk: dk, count: spots.length, spots: spots,
-          coords: coords.map(function (c, i) { return c ? { lat: c.lat, lon: c.lon, city: c.city, title: spots[i].title } : null; })
+          date: date, count: cities.length,
+          cities: cities.map(function (c, i) {
+            var fc = frs[i];
+            return { label: c.name || '', sum: fc ? summaryOf(fc, date) : null, outOfRange: !!fc && !hasDate(fc, date), noForecast: !fc };
+          })
         };
       });
-    })).then(function (all) {
-      // 備援：查不到座標的景點，沿用同一天前一個有座標的景點；都沒有則用整趟第一個有座標的景點
-      var anchor = null;
-      all.forEach(function (d) { d.coords.forEach(function (c) { if (!anchor && c) anchor = c; }); });
-      all.forEach(function (d) {
-        var last = null;
-        d.coords = d.coords.map(function (c) { if (c) { last = c; return c; } return last || anchor; });
-      });
-      return Promise.all(all.map(function (d) {
-        var date = dayDate(proj, d.dk);
-        var main = dayMain(d.coords);
-        var mainFc = main ? forecast(main.lat, main.lon) : Promise.resolve(null);
-        var spotFcs = d.coords.map(function (c) {
-          return c && main && dist(c, main) > 0.3 ? forecast(c.lat, c.lon) : Promise.resolve(null);
-        });
-        return Promise.all([mainFc, Promise.all(spotFcs)]).then(function (r) {
-          var mainSum = r[0] ? summaryOf(r[0], date) : null;
-          return {
-            date: date, main: main, count: d.count, mainSum: mainSum,
-            outOfRange: !!r[0] && !hasDate(r[0], date),
-            noForecast: !r[0] && !!main,
-            spots: d.coords.map(function (c, i) {
-              var differs = !!c && !!main && dist(c, main) > 0.3;
-              return { coord: c, differs: differs, sum: differs && r[1][i] ? summaryOf(r[1][i], date) : null };
-            })
-          };
-        });
-      }));
-    }).then(function (list) {
+    })).then(function (list) {
       var res = {};
       days.forEach(function (dk, i) { res[dk] = list[i]; });
       memo = { sig: sig, data: res };
@@ -175,9 +120,12 @@
   }
   function dayChipHTML(d) {
     if (!d) return '';
-    if (d.outOfRange) return '<span class="wx-chip wx-muted">尚未開放預報</span>';
-    if (!d.mainSum) return '';
-    return chipHTML(d.mainSum) + ' <span class="wx-chip wx-muted">降雨 ' + d.mainSum.rain + '%</span>';
+    if (!d.cities || !d.cities.length) return '<span class="wx-chip wx-muted">尚未設定主要城市</span>';
+    return d.cities.map(function (c) {
+      if (c.outOfRange) return '<div style="margin-top:4px"><span class="wx-chip wx-muted">' + esc(c.label) + '：尚未開放預報</span></div>';
+      if (!c.sum) return '';
+      return '<div style="margin-top:4px"><span class="wx-chip wx-muted">' + esc(c.label) + '</span> ' + chipHTML(c.sum) + ' <span class="wx-chip wx-muted">降雨 ' + c.sum.rain + '%</span></div>';
+    }).join('');
   }
 
   window.hydrateItineraryWeather = function () {
@@ -188,11 +136,7 @@
       document.querySelectorAll('#itineraryContainer .wx-day-slot').forEach(function (el) {
         el.innerHTML = dayChipHTML(res[el.dataset.day]);
       });
-      document.querySelectorAll('#itineraryContainer .wx-spot-slot').forEach(function (el) {
-        var d = res[el.dataset.day];
-        var s = d && d.spots[+el.dataset.idx];
-        el.innerHTML = s && s.differs && s.sum ? chipHTML(s.sum, 'wx-spot') : '';
-      });
+      document.querySelectorAll('#itineraryContainer .wx-spot-slot').forEach(function (el) { el.innerHTML = ''; });
     });
   };
 

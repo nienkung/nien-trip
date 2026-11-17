@@ -53,7 +53,13 @@
     '.prep-card-acts{display:flex;gap:8px;margin-top:10px}' +
     '.prep-btn{font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;border:1px solid var(--brand-border);background:#fff;color:var(--brand-dark);cursor:pointer}' +
     '.prep-btn.danger{color:#c0392b;border-color:#f0c4bd}';
-  st2.textContent += '.prep-card{display:block}';
+  st2.textContent += '.prep-card{display:block}' +
+    '.prep-cell-icon{min-height:22px;font-size:18px;line-height:22px;margin-bottom:4px}' +
+    '.prep-cell-icon.flip{display:inline-block;transform:scaleX(-1)}' +
+    '.prep-circle{width:50px;height:50px;margin:0 auto;border-radius:50%;background:#fff;border:1.5px solid var(--brand-border);display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:800;color:var(--brand-dark)}' +
+    '.prep-circle.emph{border:2px solid var(--brand-main);color:var(--brand-main)}' +
+    '.prep-cell-dot{width:50px;height:50px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--brand-main)}' +
+    '.prep-cell-label{font-size:11px;font-weight:800;color:var(--brand-main);height:16px;line-height:16px;margin-top:6px;letter-spacing:.5px}';
   document.head.appendChild(st2);
 
   function esc(s) { return window.escapeHtml ? window.escapeHtml(s) : String(s == null ? '' : s); }
@@ -95,10 +101,13 @@
     if (window._currentTab === 'prep') setVars();
   });
 
-  function cdCell(t, icon, emph, label) {
-    return '<div class="prep-cell"><div class="prep-cell-icon">' + (icon || '') + '</div>' +
-      '<div class="prep-cell-date' + (emph ? ' emph' : '') + '">' + (label || md(t)) + '</div>' +
-      '</div>';
+  function cdCell(t, o) {
+    o = o || {};
+    var circle = o.ellipsis
+      ? '<div class="prep-cell-dot">…</div>'
+      : '<div class="prep-circle' + (o.emph ? ' emph' : '') + '">' + md(t) + '</div>';
+    return '<div class="prep-cell"><div class="prep-cell-icon' + (o.flip ? ' flip' : '') + '">' + (o.icon || '') + '</div>' +
+      circle + '<div class="prep-cell-label">' + (o.label || '') + '</div></div>';
   }
 
   function countdownInner(proj) {
@@ -108,48 +117,53 @@
     var E = midnight(window.WX.dayDate(proj, days[days.length - 1]));
     var T = midnight(new Date());
     if (T > E) return '<div class="prep-cd-head">旅程已結束</div>';
-    var head = '', cells = '';
+    var RUN = { icon: '🏃‍♂️', flip: true, label: 'TODAY', emph: true };
+    var START = { icon: '✈️', label: 'START!', emph: true };
+    var head, cells = '';
     if (T < S) {
       var r = Math.round((S - T) / DAY);
       head = '距離出發還有 ' + r + ' 天';
       if (r + 1 <= 5) {
-        for (var t = T; t <= S; t += DAY) cells += cdCell(t, t === S ? '🧳' : '', t === T || t === S);
+        for (var t = T; t <= S; t += DAY) cells += cdCell(t, t === T ? RUN : (t === S ? START : {}));
       } else {
-        cells = cdCell(T, '', true) + cdCell(T + DAY, '', false) + cdCell(0, '', false, '…') + cdCell(S - DAY, '', false) + cdCell(S, '🧳', true);
+        cells = cdCell(T, RUN) + cdCell(T + DAY, {}) + cdCell(0, { ellipsis: true }) + cdCell(S - DAY, {}) + cdCell(S, START);
       }
     } else {
       head = '旅行中';
-      for (var u = T, n = 0; u <= E && n < 5; u += DAY, n++) {
-        cells += cdCell(u, u === T ? '🧳' : (u === E ? '✈️' : ''), u === T || u === E);
-      }
+      for (var u = T, n = 0; u <= E && n < 5; u += DAY, n++) cells += cdCell(u, u === T ? RUN : {});
     }
     return '<div class="prep-cd-head">' + head + '</div><div class="prep-cd-cells">' + cells + '</div>';
   }
 
+  function wxRowOne(c) {
+    var sub = '', temp = '';
+    if (c.noForecast) sub = '<span>天氣暫時無法取得</span>';
+    else if (c.outOfRange) sub = '<span>尚未開放預報（16 天內才有）</span>';
+    else if (c.sum) {
+      var s = c.sum;
+      sub = '<span>' + s.icon + ' ' + s.label + ' · 降雨 ' + s.rain + '%</span>';
+      temp = '<div>' + s.hi + '° / ' + s.lo + '°</div><div class="lug">' +
+        window.WX.luggageOf(s).map(function (r) { return '<span title="' + r.text + '">' + r.icon + '</span>'; }).join('') + '</div>';
+    } else sub = '<span>這天暫時查不到天氣</span>';
+    return { place: c.label, sub: sub, temp: temp };
+  }
   function wxRowsHTML(proj, res) {
-    var days = window.WX.tripDays(proj);
     var today = midnight(new Date());
-    return days.map(function (dk) {
+    return window.WX.tripDays(proj).map(function (dk) {
       var d = res ? res[dk] : null;
       var date = window.WX.dayDate(proj, dk);
       var isToday = date && midnight(date) === today;
-      var place = d && d.main ? (d.main.city || d.main.title) : '尚未設定地點';
-      var sub, temp = '';
-      if (!res) sub = '<span>查詢中…</span>';
-      else if (!d || !d.main) sub = '<span>' + (d && d.count ? '景點查不到地點，請用地點搜尋重新加入' : '這天還沒有景點，加入後會顯示天氣') + '</span>';
-      else if (d.noForecast) sub = '<span>天氣暫時無法取得</span>';
-      else if (d.outOfRange) sub = '<span>尚未開放預報（16 天內才有）</span>';
-      else if (d.mainSum) {
-        var s = d.mainSum;
-        sub = '<span>' + s.icon + ' ' + s.label + ' · 降雨 ' + s.rain + '%</span>';
-        temp = '<div>' + s.hi + '° / ' + s.lo + '°</div><div class="lug">' +
-          window.WX.luggageOf(s).map(function (r) { return '<span title="' + r.text + '">' + r.icon + '</span>'; }).join('') + '</div>';
-      }
-      if (res && d && d.main && !d.mainSum && !d.outOfRange && !d.noForecast) sub = '<span>這天暫時查不到天氣</span>';
-      return '<div class="prep-wx-row' + (isToday ? ' today' : '') + '">' +
-        '<div class="prep-wx-date">' + (date ? md(date) : '') + '<small>' + (date ? wk(date) : '') + ' · ' + dk + '</small></div>' +
-        '<div style="min-width:0"><div class="prep-wx-place">' + esc(place) + '</div><div class="prep-wx-sub">' + sub + '</div></div>' +
-        '<div class="prep-wx-temp">' + temp + '</div></div>';
+      var items;
+      if (!res) items = [{ place: '尚未設定地點', sub: '<span>查詢中…</span>', temp: '' }];
+      else if (!d || !d.count) items = [{ place: '尚未設定地點', sub: '<span>尚未設定主要城市，請到行程規劃新增</span>', temp: '' }];
+      else if (!d.cities.length) items = [{ place: '尚未設定地點', sub: '<span>景點缺少 Google 座標，請用地點搜尋重新選取</span>', temp: '' }];
+      else items = d.cities.map(wxRowOne);
+      var dateCell = '<div class="prep-wx-date">' + (date ? md(date) : '') + '<small>' + (date ? wk(date) + ' · ' + dk : '') + '</small></div>';
+      return items.map(function (it, i) {
+        return '<div class="prep-wx-row' + (isToday ? ' today' : '') + '">' + (i === 0 ? dateCell : '<div class="prep-wx-date"></div>') +
+          '<div style="min-width:0"><div class="prep-wx-place">' + esc(it.place) + '</div><div class="prep-wx-sub">' + it.sub + '</div></div>' +
+          '<div class="prep-wx-temp">' + it.temp + '</div></div>';
+      }).join('');
     }).join('');
   }
 
