@@ -8,7 +8,7 @@
 
   var st = document.createElement('style');
   st.textContent =
-    '#prepCountdown{position:sticky;top:var(--prep-top,120px);z-index:60;background:var(--brand-bg);border:1px solid var(--brand-border);border-radius:14px;padding:10px 12px;margin-bottom:10px}' +
+    '#prepCountdown{position:sticky;top:var(--prep-top,120px);z-index:60;background:var(--brand-bg);border:1px solid var(--brand-border);border-radius:14px 14px 0 0;padding:10px 12px 12px;margin-bottom:0}' +
     '.prep-cd-head{font-size:12px;font-weight:800;color:var(--brand-main);margin-bottom:6px}' +
     '.prep-cd-cells{display:flex;gap:6px;align-items:flex-start}' +
     '.prep-cell{flex:1;text-align:center;min-width:0;font-family:ui-monospace,Menlo,monospace}' +
@@ -86,7 +86,7 @@
     var top = tb ? Math.max(0, Math.round(tb.getBoundingClientRect().bottom)) : 60;
     document.documentElement.style.setProperty('--prep-top', top + 'px');
     var cd = document.getElementById('prepCountdown');
-    if (cd) document.documentElement.style.setProperty('--prep-cd-h', (cd.offsetHeight + 8) + 'px');
+    if (cd) document.documentElement.style.setProperty('--prep-cd-h', cd.offsetHeight + 'px');
   }
   window.addEventListener('scroll', function () {
     if (window._currentTab === 'prep') setVars();
