@@ -778,9 +778,9 @@ window.removeDayCity = function (dayKey, i) {
 (function () {
   const st = document.createElement('style');
   st.textContent =
-    '.day-theme-box{margin-top:8px;padding:6px 12px;max-width:360px;border-radius:10px;border:1px solid var(--brand-border);background:transparent;font-size:14px;font-weight:600;color:var(--brand-dark);cursor:pointer}' +
+    '.day-theme-box{margin-top:8px;padding:6px 12px;max-width:360px;border-radius:10px;border:none;background:transparent;font-size:14px;font-weight:600;color:var(--brand-dark);cursor:pointer;padding:6px 0}' +
     '.day-theme-blank{font-size:12px;font-weight:500;color:var(--sub-text)}' +
-    '.city-editor{margin-bottom:12px;padding:8px 10px;border:1px solid var(--brand-border);border-radius:12px;background:transparent;cursor:pointer}' +
+    '.city-editor{margin-bottom:12px;padding:6px 0;border:none;border-radius:12px;background:transparent;cursor:pointer}' +
     '.city-editor-title{font-size:11px;font-weight:600;color:var(--sub-text);margin-bottom:6px}' +
     '.city-blank{font-size:12px;color:var(--sub-text)}';
   document.head.appendChild(st);
