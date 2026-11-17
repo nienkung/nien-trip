@@ -40,7 +40,8 @@ async function mountSpotAutocomplete() {
       const pred = event.placePrediction;
       if (!pred) return;
       const place = pred.toPlace();
-      await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'googleMapsURI', 'photos'] });
+      await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'googleMapsURI', 'photos', 'location'] });
+      if (place.location) window._pendingGeo = { lat: place.location.lat(), lon: place.location.lng() };
 
       const titleEl = document.getElementById('spotTitleInput');
       const mapEl = document.getElementById('spotMapUrl');
@@ -203,6 +204,7 @@ function spotCardHTML(dayKey, spot, spotIdx, canEdit) {
           ${spot.time ? `<span class="spot-time">⏰ ${window.escapeHtml(spot.time)}</span>` : ''}
           <div class="spot-title">${window.escapeHtml(spot.title)}</div>
           ${spot.desc ? `<div class="spot-desc">${linkifyText(spot.desc)}</div>` : ''}
+          <div class="wx-spot-slot" data-day="${dayKey}" data-idx="${spotIdx}"></div>
           <div class="btn-group">
             <a href="${window.escapeHtml(mapHref)}" target="_blank" class="map-btn">📍 地圖導航</a>
           </div>
@@ -252,7 +254,7 @@ window.renderItineraryFromJSON = function(data) {
   const sameProject = window._itinProjId === window.activeProjectId;
   const scrollY = window.scrollY;
 
-  const daysList = window.getDynamicProjectDays(proj);
+  const daysList = window.getDynamicProjectDays(proj).filter(d => d !== 'D0');
   const canEdit = window.canEditContent(proj);
   const openMap = itinOpenState();
   let html = '';
@@ -288,6 +290,7 @@ window.renderItineraryFromJSON = function(data) {
           <div>
             <div class="card-title">${window.escapeHtml(title)}</div>
             <div class="card-subtitle">${subtitle}</div>
+          <div class="wx-day-slot" data-day="${dayKey}"></div>
           </div>
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
         </div>
@@ -296,6 +299,9 @@ window.renderItineraryFromJSON = function(data) {
   });
 
   container.innerHTML = html;
+  if (window.hydrateItineraryWeather) window.hydrateItineraryWeather();
+  if (window.renderPrep) window.renderPrep();
+  if (window.updateDayWheel) window.updateDayWheel();
   // 同一個專案內的操作（新增／刪除／修改／排序）保留捲動位置
   if (sameProject) window.scrollTo(0, scrollY);
 };
@@ -345,6 +351,7 @@ function moveSpotTo(fromDay, from, toDay, to) {
 // ===== 景點新增 / 編輯彈窗 =====
 
 window.openSpotModal = function(dayKey, index = -1) {
+  window._pendingGeo = null;
   if (!window.canEditContent(window.activeProjectData)) return alert('你沒有編輯權限（僅團員、團主或管理員可編輯行程）。');
 
   const proj = window.activeProjectData || {};
@@ -423,6 +430,15 @@ window.saveSpotFromModal = function() {
   }
 
   const spotData = { time, title, mapUrl, thumbUrl, desc };
+  const prevSpot = (index >= 0 && window.activeProjectData.itinerary[dayKey] && window.activeProjectData.itinerary[dayKey].spots[index]) || null;
+  if (window._pendingGeo) {
+    spotData.lat = window._pendingGeo.lat;
+    spotData.lon = window._pendingGeo.lon;
+  } else if (prevSpot && prevSpot.title === title && typeof prevSpot.lat === 'number') {
+    spotData.lat = prevSpot.lat;
+    spotData.lon = prevSpot.lon;
+  }
+  window._pendingGeo = null;
   if (thumbUrl) {
     spotData.thumbX = clampPct(document.getElementById('spotThumbX').value);
     spotData.thumbY = clampPct(document.getElementById('spotThumbY').value);
@@ -547,6 +563,7 @@ window.switchProjectTab = function(tabName) {
   if (targetSub) targetSub.classList.add('active');
 
   window.updateProjectFabs();
+  if (window.onProjectTabChange) window.onProjectTabChange(tabName);
 };
 
 // 依目前分頁與編輯權限，顯示對應的懸浮動作鈕（記帳 / 景點），同一時間只會有一個

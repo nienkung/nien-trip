@@ -415,6 +415,7 @@
     <div class="main-container" style="padding-top: 12px;">
       <div class="tabbar-sticky">
         <div class="tab-bar">
+          <button class="tab-btn" onclick="switchProjectTab('prep')">📋行前準備</button>
           <button class="tab-btn active" onclick="switchProjectTab('itinerary')">📍行程規劃</button>
           <button class="tab-btn finance-tab" onclick="switchProjectTab('expense')">📝旅程記帳</button>
           <button class="tab-btn finance-tab" onclick="switchProjectTab('settlement')">⚖️結算拆帳</button>
@@ -431,6 +432,10 @@
             <button class="expand-btn" onclick="setAllItinDays(false)">⊖ 全部收合</button>
           </div>
           <div id="itineraryContainer"></div>
+        </div>
+
+        <div id="subtab-prep" class="tab-subcontent">
+          <div id="prepContainer"></div>
         </div>
 
         <div id="subtab-expense" class="tab-subcontent">
@@ -860,16 +865,19 @@
     window.addEventListener('orientationchange', function () { setTimeout(window.syncNavbarHeight, 200); });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261117a"></script>
-  <script src="./app-state.js?v=20261117a"></script>
-  <script src="./dashboard.js?v=20261117a"></script>
-  <script src="./auth.js?v=20261117a"></script>
-  <script src="./members.js?v=20261117a"></script>
-  <script src="./join.js?v=20261117a"></script>
-  <script src="./identity.js?v=20261117a"></script>
-  <script src="./drag-sort.js?v=20261117a"></script>
-  <script src="./itinerary.js?v=20261117a"></script>
-  <script src="./expenses.js?v=20261117a"></script>
-  <script src="./ai-importer.js?v=20261117a"></script>
+  <script type="module" src="./firebase-config.js?v=20261117b"></script>
+  <script src="./app-state.js?v=20261117b"></script>
+  <script src="./dashboard.js?v=20261117b"></script>
+  <script src="./auth.js?v=20261117b"></script>
+  <script src="./members.js?v=20261117b"></script>
+  <script src="./join.js?v=20261117b"></script>
+  <script src="./identity.js?v=20261117b"></script>
+  <script src="./drag-sort.js?v=20261117b"></script>
+  <script src="./itinerary.js?v=20261117b"></script>
+  <script src="./expenses.js?v=20261117b"></script>
+  <script src="./weather.js?v=20261117b"></script>
+  <script src="./prep.js?v=20261117b"></script>
+  <script src="./daywheel.js?v=20261117b"></script>
+  <script src="./ai-importer.js?v=20261117b"></script>
 </body>
 </html>
