@@ -155,7 +155,7 @@
       var isToday = date && midnight(date) === today;
       var items;
       if (!res) items = [{ place: '尚未設定地點', sub: '<span>查詢中…</span>', temp: '' }];
-      else if (!d || !d.count) items = [{ place: '尚未設定地點', sub: '<span>這天還沒有景點，加入後會顯示天氣</span>', temp: '' }];
+      else if (!d || !d.count) items = [{ place: '尚未設定地點', sub: '<span>尚未設定主要城市，請到行程規劃新增</span>', temp: '' }];
       else if (!d.cities.length) items = [{ place: '尚未設定地點', sub: '<span>景點缺少 Google 座標，請用地點搜尋重新選取</span>', temp: '' }];
       else items = d.cities.map(wxRowOne);
       var dateCell = '<div class="prep-wx-date">' + (date ? md(date) : '') + '<small>' + (date ? wk(date) + ' · ' + dk : '') + '</small></div>';

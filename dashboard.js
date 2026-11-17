@@ -443,7 +443,10 @@ function buildItineraryForDates(startStr, endStr, oldItin) {
     const w = weekMap[cur.getDay()];
     const key = `D${i + 1}`;
     const prevSpots = (old[key] && Array.isArray(old[key].spots)) ? old[key].spots : [];
+    const prevDay = old[key] || {};
     newItin[key] = { title: `${key} (${m}/${d} 週${w})`, spots: prevSpots };
+    if (prevDay.theme) newItin[key].theme = prevDay.theme;
+    if (Array.isArray(prevDay.cities) && prevDay.cities.length) newItin[key].cities = prevDay.cities;
   }
   return { itinerary: newItin, diffDays };
 }

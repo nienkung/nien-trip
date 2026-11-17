@@ -93,45 +93,21 @@
   window.loadTripWeather = function (proj) {
     if (!proj || !proj.startDate) return Promise.resolve(null);
     var days = tripDays(proj), it = proj.itinerary || {};
-    var sig = JSON.stringify([proj.startDate, days.map(function (dk) {
-      return ((it[dk] && it[dk].spots) || []).map(function (s) { return [s.title, s.lat, s.lon]; });
-    })]);
+    var sig = JSON.stringify([proj.startDate, days.map(function (dk) { return (it[dk] && it[dk].cities) || []; })]);
     if (memo.sig === sig && memo.data) return Promise.resolve(memo.data);
     return Promise.all(days.map(function (dk) {
-      var spots = (it[dk] && it[dk].spots) || [];
-      return Promise.all(spots.map(spotCoord)).then(function (coords) {
+      var date = dayDate(proj, dk);
+      var cities = ((it[dk] && it[dk].cities) || []).filter(function (c) { return c && typeof c.lat === 'number'; });
+      return Promise.all(cities.map(function (c) { return forecast(c.lat, c.lon); })).then(function (frs) {
         return {
-          dk: dk, count: spots.length, spots: spots,
-          coords: coords.map(function (c, i) { return c ? { lat: c.lat, lon: c.lon, city: c.city, title: spots[i].title } : null; })
+          date: date, count: cities.length,
+          cities: cities.map(function (c, i) {
+            var fc = frs[i];
+            return { label: c.name || '', sum: fc ? summaryOf(fc, date) : null, outOfRange: !!fc && !hasDate(fc, date), noForecast: !fc };
+          })
         };
       });
-    })).then(function (all) {
-      return Promise.all(all.map(function (d) {
-        var date = dayDate(proj, d.dk);
-        // 依景點出現順序分城市：距離 30 公里內視為同一城市，每個城市各一組天氣
-        var groups = [];
-        d.coords.forEach(function (c) {
-          if (!c) return;
-          var g = null;
-          for (var k = 0; k < groups.length; k++) { if (dist(groups[k].rep, c) <= 0.3) { g = groups[k]; break; } }
-          if (g) g.count++; else groups.push({ rep: c, count: 1 });
-        });
-        return Promise.all(groups.map(function (g) { return forecast(g.rep.lat, g.rep.lon); })).then(function (frs) {
-          return {
-            date: date, count: d.count,
-            cities: groups.map(function (g, i) {
-              var fc = frs[i];
-              return {
-                label: g.rep.title || g.rep.city || '',
-                sum: fc ? summaryOf(fc, date) : null,
-                outOfRange: !!fc && !hasDate(fc, date),
-                noForecast: !fc
-              };
-            })
-          };
-        });
-      }));
-    }).then(function (list) {
+    })).then(function (list) {
       var res = {};
       days.forEach(function (dk, i) { res[dk] = list[i]; });
       memo = { sig: sig, data: res };
@@ -144,7 +120,7 @@
   }
   function dayChipHTML(d) {
     if (!d) return '';
-    if (!d.cities || !d.cities.length) return d.count ? '<span class="wx-chip wx-muted">景點缺少 Google 座標</span>' : '';
+    if (!d.cities || !d.cities.length) return '<span class="wx-chip wx-muted">尚未設定主要城市</span>';
     return d.cities.map(function (c) {
       if (c.outOfRange) return '<div style="margin-top:4px"><span class="wx-chip wx-muted">' + esc(c.label) + '：尚未開放預報</span></div>';
       if (!c.sum) return '';
