@@ -273,7 +273,7 @@ window.renderItineraryFromJSON = function(data) {
       body += prepNotesHTML(proj.prepNotes, canEdit);
       if (spots.length) body += spotListHTML(dayKey, spots, canEdit);
     } else {
-      body += cityEditorHTML(dayKey, day.cities || [], canEdit);
+      body += cityEditorHTML(dayKey, day.cities || [], canEdit, !!_dayEdit[dayKey]);
       if (canEdit) {
         body += `
           <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
@@ -291,7 +291,7 @@ window.renderItineraryFromJSON = function(data) {
           <div>
             <div class="card-title">${window.escapeHtml(title)}</div>
             <div class="card-subtitle">${subtitle}</div>
-            ${isPrep ? '' : themeInputHTML(dayKey, day.theme, canEdit) + (timeOrderBroken(spots) ? '<div><span class="order-warn">⚠ 景點時間與順序不一致，請確認</span></div>' : '')}
+            ${isPrep ? '' : themeBlockHTML(dayKey, day.theme, canEdit, !!_dayEdit[dayKey]) + (timeOrderBroken(spots) ? '<div><span class="order-warn">⚠ 景點時間與順序不一致，請確認</span></div>' : '')}
           <div class="wx-day-slot" data-day="${dayKey}"></div>
           </div>
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
@@ -628,18 +628,38 @@ function insertSpotByTime(list, item) {
   list.push(item);
 }
 
-function themeInputHTML(dayKey, theme, canEdit) {
-  return `<input class="day-theme-input" type="text" maxlength="40" value="${window.escapeHtml(theme || '')}" placeholder="✏️ 當日主軸，例：京都古寺巡禮" ${canEdit ? '' : 'readonly'} onclick="event.stopPropagation()" onkeydown="event.stopPropagation()" onchange="saveDayTheme('${dayKey}', this.value)">`;
+const _dayEdit = {};
+window.toggleDayEdit = function (dayKey) {
+  _dayEdit[dayKey] = !_dayEdit[dayKey];
+  itinOpenState()[dayKey] = true;
+  if (window.activeProjectData) window.renderItineraryFromJSON(window.activeProjectData.itinerary);
+};
+
+// 主軸：有內容時是實體框，按 ✏️ 才進入編輯
+function themeBlockHTML(dayKey, theme, canEdit, editing) {
+  const stop = 'onclick="event.stopPropagation()"';
+  if (canEdit && editing) {
+    return `<input class="day-theme-input" type="text" maxlength="40" value="${window.escapeHtml(theme || '')}" placeholder="例：京都古寺巡禮" ${stop} onkeydown="event.stopPropagation()" onchange="saveDayTheme('${dayKey}', this.value)">`;
+  }
+  if (theme) {
+    return `<div class="day-theme-box"><span>${window.escapeHtml(theme)}</span>${canEdit ? `<button class="mini-edit" ${stop} onclick="event.stopPropagation(); toggleDayEdit('${dayKey}')">✏️</button>` : ''}</div>`;
+  }
+  if (canEdit) {
+    return `<button class="day-theme-empty" ${stop} onclick="event.stopPropagation(); toggleDayEdit('${dayKey}')">＋ 設定當日主軸</button>`;
+  }
+  return '';
 }
 
-function cityEditorHTML(dayKey, cities, canEdit) {
+// 城市：平常是實體框，按「✏️ 編輯」才出現 ✕ 與「新增城市」
+function cityEditorHTML(dayKey, cities, canEdit, editing) {
   const list = cities || [];
   const chips = list.map((c, i) =>
-    `<span class="city-chip">📍${window.escapeHtml(c.name)}${canEdit ? `<button onclick="removeDayCity('${dayKey}', ${i})" aria-label="移除">✕</button>` : ''}</span>`
+    `<span class="city-chip">📍${window.escapeHtml(c.name)}${canEdit && editing ? `<button onclick="removeDayCity('${dayKey}', ${i})" aria-label="移除">✕</button>` : ''}</span>`
   ).join('');
-  const add = canEdit && list.length < 3 ? `<button class="city-add" onclick="openCityModal('${dayKey}')">＋ 新增城市</button>` : '';
-  const hint = list.length ? '' : `<span style="font-size:12px; color:var(--sub-text);">${canEdit ? '尚未設定，天氣會依這裡的城市查詢' : '團員尚未設定城市'}</span>`;
-  return `<div class="city-editor"><div class="city-editor-title">📍 今天主要會待的城市（最多 3 個，天氣依此查詢）</div><div class="city-chips">${chips}${add}${hint}</div></div>`;
+  const add = canEdit && editing && list.length < 3 ? `<button class="city-add" onclick="event.stopPropagation(); openCityModal('${dayKey}')">＋ 新增城市</button>` : '';
+  const edit = canEdit ? `<button class="mini-edit" onclick="event.stopPropagation(); toggleDayEdit('${dayKey}')">${editing ? '完成' : '✏️ 編輯'}</button>` : '';
+  const hint = list.length ? '' : `<span style="font-size:12px; color:var(--sub-text);">${canEdit ? '尚未設定，點「✏️ 編輯」加入城市' : '團員尚未設定城市'}</span>`;
+  return `<div class="city-editor"><div class="city-editor-head"><div class="city-editor-title">📍 今天主要會待的城市（最多 3 個，天氣依此查詢）</div>${edit}</div><div class="city-chips">${chips}${add}${hint}</div></div>`;
 }
 
 function persistItinerary(dayKey) {
@@ -659,6 +679,7 @@ window.saveDayTheme = function (dayKey, value) {
   const it = window.activeProjectData.itinerary || (window.activeProjectData.itinerary = {});
   if (!it[dayKey]) it[dayKey] = { title: dayKey, spots: [] };
   it[dayKey].theme = String(value || '').trim().slice(0, 40);
+  _dayEdit[dayKey] = false;
   persistItinerary(dayKey);
 };
 
@@ -727,3 +748,14 @@ window.removeDayCity = function (dayKey, i) {
   list.splice(i, 1);
   persistItinerary(dayKey);
 };
+
+(function () {
+  const st = document.createElement('style');
+  st.textContent =
+    '.day-theme-box{margin-top:8px;padding:8px 12px;max-width:360px;border-radius:10px;background:var(--brand-light);border:1.5px solid var(--brand-border);font-size:14px;font-weight:800;color:var(--brand-dark);display:flex;justify-content:space-between;align-items:center;gap:8px}' +
+    '.day-theme-empty{margin-top:8px;padding:6px 12px;border-radius:10px;border:1px dashed var(--brand-border);background:transparent;color:var(--brand-main);font-size:12px;font-weight:700;cursor:pointer}' +
+    '.mini-edit{background:none;border:none;color:var(--brand-main);cursor:pointer;font-size:12px;font-weight:700;padding:2px 6px;white-space:nowrap}' +
+    '.city-editor{border:1.5px solid var(--brand-border)}' +
+    '.city-editor-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}';
+  document.head.appendChild(st);
+})();

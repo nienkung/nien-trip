@@ -54,7 +54,8 @@
     '.prep-btn{font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;border:1px solid var(--brand-border);background:#fff;color:var(--brand-dark);cursor:pointer}' +
     '.prep-btn.danger{color:#c0392b;border-color:#f0c4bd}';
   st2.textContent += '.prep-card{display:block}' +
-    '.prep-cell-icon{min-height:22px;font-size:18px;line-height:22px;margin-bottom:4px}' +
+    '.prep-cell-icon{min-height:32px;margin-bottom:4px}' +
+    '.prep-cell-icon svg{width:32px;height:32px;display:block;margin:0 auto;color:var(--brand-main)}' +
     '.prep-cell-icon.flip{display:inline-block;transform:scaleX(-1)}' +
     '.prep-circle{width:50px;height:50px;margin:0 auto;border-radius:50%;background:#fff;border:1.5px solid var(--brand-border);display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:800;color:var(--brand-dark)}' +
     '.prep-circle.emph{border:2px solid var(--brand-main);color:var(--brand-main)}' +
@@ -101,6 +102,9 @@
     if (window._currentTab === 'prep') setVars();
   });
 
+  var RUNNER_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="31" cy="10" r="4.5" fill="currentColor" stroke="none"/><path d="M28 18 L21 30" stroke-width="5"/><path d="M27 20 L17 23 L12 19" stroke-width="3.5"/><path d="M27 20 L36 25 L40 21" stroke-width="3.5"/><path d="M21 30 L30 36 L28 44" stroke-width="4"/><path d="M21 30 L13 36 L7 43" stroke-width="4"/><path d="M4 14 H10 M2 22 H8 M5 30 H9" stroke-width="2" opacity=".5"/></g></svg>';
+  var PLANE_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><g fill="currentColor"><path d="M4 22 L9 14 L13 14 L11 22 Z" opacity=".8"/><path d="M6 24 Q6 19 13 19 L37 19 Q44 20 45 24 Q44 28 37 29 L13 29 Q6 29 6 24 Z"/><path d="M20 19 L15 6 L20 6 L31 19 Z" opacity=".85"/><path d="M20 29 L15 42 L20 42 L31 29 Z" opacity=".85"/></g><circle cx="26" cy="24" r="1.6" fill="#fff" opacity=".9"/><circle cx="31" cy="24" r="1.6" fill="#fff" opacity=".9"/><circle cx="36" cy="24" r="1.6" fill="#fff" opacity=".9"/></svg>';
+
   function cdCell(t, o) {
     o = o || {};
     var circle = o.ellipsis
@@ -117,8 +121,8 @@
     var E = midnight(window.WX.dayDate(proj, days[days.length - 1]));
     var T = midnight(new Date());
     if (T > E) return '<div class="prep-cd-head">旅程已結束</div>';
-    var RUN = { icon: '🏃‍♂️', flip: true, label: 'TODAY', emph: true };
-    var START = { icon: '✈️', label: 'START!', emph: true };
+    var RUN = { icon: RUNNER_SVG, label: 'TODAY', emph: true };
+    var START = { icon: PLANE_SVG, label: 'START!', emph: true };
     var head, cells = '';
     if (T < S) {
       var r = Math.round((S - T) / DAY);
