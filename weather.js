@@ -20,9 +20,7 @@
     { icon: '🧥', text: '注意保暖', test: function (s) { return s.lo <= 10; } },
     { icon: '🧴', text: '建議防曬', test: function (s) { return s.hi >= 30; } }
   ];
-  var geoStore = {};
-  try { geoStore = JSON.parse(localStorage.getItem('nt_geo') || '{}'); } catch (e) { geoStore = {}; }
-  var geoMem = {}, fcMem = {}, memo = { sig: '', data: null };
+  var fcMem = {}, memo = { sig: '', data: null };
 
   var st = document.createElement('style');
   st.textContent = '.wx-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--brand-dark);background:var(--brand-light);border:1px solid var(--brand-border);border-radius:999px;padding:2px 8px;margin-top:6px;white-space:nowrap}' +
@@ -42,25 +40,6 @@
     if (!proj) return [];
     return window.getDynamicProjectDays(proj).filter(function (dk) { return dayNumber(dk) > 0; });
   }
-  function saveGeo() { try { localStorage.setItem('nt_geo', JSON.stringify(geoStore)); } catch (e) {} }
-
-  function geocode(name) {
-    var key = String(name || '').trim();
-    if (!key) return Promise.resolve(null);
-    if (geoStore[key]) return Promise.resolve(geoStore[key]);
-    if (!(key in geoMem)) {
-      geoMem[key] = fetch('/api/geocode?q=' + encodeURIComponent(key))
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) {
-          var v = j && typeof j.lat === 'number' ? { lat: j.lat, lon: j.lon, city: j.city || '' } : null;
-          if (v) { geoStore[key] = v; saveGeo(); }
-          return v;
-        })
-        .catch(function () { return null; });
-    }
-    return geoMem[key];
-  }
-
   function forecast(lat, lon) {
     var k = lat.toFixed(2) + ',' + lon.toFixed(2);
     if (!fcMem[k]) {
@@ -72,21 +51,12 @@
     return fcMem[k];
   }
 
-  function nameCandidates(t) {
-    var s = String(t || '').trim();
-    var out = s ? [s] : [];
-    var short = s.replace(/(車站|站|機場|神社|寺|公園|美術館|博物館|市場|飯店|酒店|大學)$/, '');
-    if (short && short !== s) out.push(short);
-    return out;
-  }
-  function geocodeAny(names) {
-    return names.reduce(function (p, n) { return p.then(function (r) { return r || geocode(n); }); }, Promise.resolve(null));
-  }
+  // 只使用 Google 地點搜尋存下的座標（spot.lat / spot.lon），不用景點名稱猜座標
   function spotCoord(spot) {
     if (spot && typeof spot.lat === 'number' && typeof spot.lon === 'number') {
       return Promise.resolve({ lat: spot.lat, lon: spot.lon, city: '' });
     }
-    return geocodeAny(nameCandidates(spot && spot.title));
+    return Promise.resolve(null);
   }
 
   function dist(a, b) { return Math.hypot(a.lat - b.lat, a.lon - b.lon); }
@@ -135,13 +105,6 @@
         };
       });
     })).then(function (all) {
-      // 備援：查不到座標的景點，沿用同一天前一個有座標的景點；都沒有則用整趟第一個有座標的景點
-      var anchor = null;
-      all.forEach(function (d) { d.coords.forEach(function (c) { if (!anchor && c) anchor = c; }); });
-      all.forEach(function (d) {
-        var last = null;
-        d.coords = d.coords.map(function (c) { if (c) { last = c; return c; } return last || anchor; });
-      });
       return Promise.all(all.map(function (d) {
         var date = dayDate(proj, d.dk);
         var main = dayMain(d.coords);

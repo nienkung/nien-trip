@@ -136,7 +136,7 @@
       var place = d && d.main ? (d.main.city || d.main.title) : '尚未設定地點';
       var sub, temp = '';
       if (!res) sub = '<span>查詢中…</span>';
-      else if (!d || !d.main) sub = '<span>' + (d && d.count ? '景點查不到地點，請用地點搜尋重新加入' : '這天還沒有景點，加入後會顯示天氣') + '</span>';
+      else if (!d || !d.main) sub = '<span>' + (d && d.count ? '景點缺少 Google 座標，請用地點搜尋重新選取' : '這天還沒有景點，加入後會顯示天氣') + '</span>';
       else if (d.noForecast) sub = '<span>天氣暫時無法取得</span>';
       else if (d.outOfRange) sub = '<span>尚未開放預報（16 天內才有）</span>';
       else if (d.mainSum) {
