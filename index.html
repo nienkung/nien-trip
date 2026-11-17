@@ -586,13 +586,30 @@
     </div>
   </div>
 
+  <div id="themeModal" class="modal-mask">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:17px; font-weight:800;">當日主軸</h3>
+        <button onclick="closeThemeModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+      <div class="form-group">
+        <input type="text" id="themeModalInput" class="form-control" maxlength="40" placeholder="例：京都古寺巡禮">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="btn-spot-edit" style="flex:1" onclick="closeThemeModal()">取消</button>
+        <button class="btn-spot-edit" style="flex:1; background:var(--brand-main); color:#fff;" onclick="saveThemeFromModal()">儲存</button>
+      </div>
+    </div>
+  </div>
+
   <div id="cityModal" class="modal-mask">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <h3 style="font-size:17px; font-weight:800;">📍 新增主要城市</h3>
+        <h3 style="font-size:17px; font-weight:800;">📍 今天主要城市</h3>
         <button onclick="closeCityModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
       </div>
-      <div class="form-group">
+      <div id="cityListBox" style="margin-bottom:12px;"></div>
+      <div class="form-group" id="cityAddGroup">
         <label class="form-label">搜尋城市（會取得 Google 地圖座標，天氣依此查詢）</label>
         <div id="cityPlaceContainer" class="gmp-wrap"></div>
         <p id="cityPlaceHint" style="font-size:11px; color:var(--sub-text); margin-top:4px;"></p>
