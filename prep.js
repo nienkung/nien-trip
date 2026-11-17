@@ -142,7 +142,7 @@
     else if (c.sum) {
       var s = c.sum;
       sub = '<span>' + s.icon + ' ' + s.label + ' · 降雨 ' + s.rain + '%</span>';
-      temp = '<div>' + s.hi + '° / ' + s.lo + '°</div><div class="lug">' +
+      temp = '<div>' + s.lo + '° / ' + s.hi + '°</div><div class="lug">' +
         window.WX.luggageOf(s).map(function (r) { return '<span title="' + r.text + '">' + r.icon + '</span>'; }).join('') + '</div>';
     } else sub = '<span>這天暫時查不到天氣</span>';
     return { place: c.label, sub: sub, temp: temp };

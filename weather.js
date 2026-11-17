@@ -116,7 +116,7 @@
   };
 
   function chipHTML(s, cls) {
-    return '<span class="wx-chip ' + (cls || '') + '">' + s.icon + '' + s.label + ' ' + s.hi + '°/' + s.lo + '°</span>';
+    return '<span class="wx-chip ' + (cls || '') + '">' + s.icon + '' + s.label + ' ' + s.lo + '°/' + s.hi + '°</span>';
   }
   function dayChipHTML(d) {
     if (!d) return '';
