@@ -14,7 +14,8 @@
     '.day-drag-handle{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;margin-right:6px;border-radius:8px;color:var(--brand-main);font-size:16px;cursor:grab;touch-action:none;user-select:none;flex-shrink:0}' +
     '.day-drag-handle:active{cursor:grabbing;background:var(--brand-light)}' +
     '.card.day-dragging{opacity:.5}' +
-    '.card.day-drop-target{outline:2px dashed var(--brand-main);outline-offset:3px}';
+    '.card.day-drop-target{outline:2px dashed var(--brand-main);outline-offset:3px}' +
+    'body.day-dragging-active{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}';
   document.head.appendChild(style);
 
   // 在每張天卡片（D0 除外）的標題列最前面加上把手；沒有編輯權限時移除
@@ -67,6 +68,17 @@
     if (t) t.card.classList.add('day-drop-target');
   }
 
+  // 按在把手上時不要開始選字（瀏覽器的預設選字行為會搶走拖曳）
+  document.addEventListener('mousedown', (e) => {
+    const h = e.target.closest && e.target.closest('.day-drag-handle');
+    if (h) e.preventDefault();
+  }, true);
+
+  // 拖曳進行中，任何選字都擋下
+  document.addEventListener('selectstart', (e) => {
+    if (st) e.preventDefault();
+  }, true);
+
   document.addEventListener('pointerdown', (e) => {
     const h = e.target.closest && e.target.closest('.day-drag-handle');
     if (!h) return;
@@ -75,6 +87,8 @@
     if (!card) return;
 
     e.preventDefault();
+    try { window.getSelection().removeAllRanges(); } catch (err) {}
+    document.body.classList.add('day-dragging-active');
     try { h.setPointerCapture(e.pointerId); } catch (err) {}
 
     st = {
@@ -115,6 +129,7 @@
     const s = st;
     st = null;
     clearInterval(s.timer);
+    document.body.classList.remove('day-dragging-active');
     s.card.classList.remove('day-dragging');
     document.querySelectorAll('.card.day-drop-target').forEach((el) => el.classList.remove('day-drop-target'));
 
