@@ -106,6 +106,8 @@ window.initFirebaseProjectsSync = function() {
   const projRef = window.dbRef(window.db, 'projects');
   window.dbOnValue(projRef, (snapshot) => {
     window.allProjects = snapshot.val() || {};
+    // 範例專案（記憶體中）接回同一份物件，不寫入資料庫
+    if (window.attachDemoProject) window.attachDemoProject(window.allProjects);
     // 進入專案後，保持 activeProjectData 指向資料庫最新副本（含他人即時變更）
     if (window.activeProjectId && window.allProjects[window.activeProjectId]) {
       window.activeProjectData = window.allProjects[window.activeProjectId];
@@ -185,7 +187,8 @@ window.renderDashboardProjects = function() {
   if (!myGrid || !othersGrid) return;
 
   const q = (document.getElementById('projectSearchInput')?.value || '').trim().toLowerCase();
-  let entries = Object.entries(window.allProjects || {});
+  // 範例專案不列在大廳的專案清單中（大廳上方有單獨的入口卡）
+  let entries = Object.entries(window.allProjects || {}).filter(([, p]) => !(p && p.__demo));
 
   // 搜尋：專案名稱 or 成員暱稱
   if (q) {

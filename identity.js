@@ -83,7 +83,7 @@
   }
 
   function bindLegacyAll() {
-    Object.entries(window.allProjects || {}).forEach(([id, p]) => bindLegacy(id, p));
+    Object.entries(window.allProjects || {}).forEach(([id, p]) => { if (!(p && p.__demo)) bindLegacy(id, p); });
   }
 
   // ===== 加入團員（以 uid 寫入；可認領同名的未綁定團員）=====

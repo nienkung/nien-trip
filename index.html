@@ -376,6 +376,18 @@
         <input type="text" id="projectSearchInput" class="dash-search" placeholder="🔍 搜尋專案名稱或成員暱稱…" oninput="renderDashboardProjects()">
       </div>
 
+      <!-- 範例專案入口（共用、唯讀練習，不會儲存） -->
+      <div class="project-card" id="demoProjectCard" onclick="enterProject('__demo__')" style="margin-bottom:18px; cursor:pointer;">
+        <div class="project-cover" style="background:linear-gradient(135deg,#F6AD55,#ED8936);">
+          <span class="cover-emoji">📖</span>
+          <span class="cover-days">範例</span>
+        </div>
+        <div class="project-body">
+          <div class="project-name">範例：京都三日遊（練習用）</div>
+          <div class="project-dates">共用範例，可以隨時點開練習，內容不會被儲存</div>
+        </div>
+      </div>
+
       <!-- 我建立的專案 -->
       <div class="dash-section" id="mineSection">
         <div class="dash-section-header" onclick="toggleDashSection('mine')">
@@ -897,19 +909,21 @@
     window.addEventListener('orientationchange', function () { setTimeout(window.syncNavbarHeight, 200); });
   </script>
 
-  <script type="module" src="./firebase-config.js?v=20261117c"></script>
-  <script src="./app-state.js?v=20261117c"></script>
-  <script src="./dashboard.js?v=20261117c"></script>
-  <script src="./auth.js?v=20261117c"></script>
-  <script src="./members.js?v=20261117c"></script>
-  <script src="./join.js?v=20261117c"></script>
-  <script src="./identity.js?v=20261117c"></script>
-  <script src="./drag-sort.js?v=20261117c"></script>
-  <script src="./itinerary.js?v=20261117c"></script>
-  <script src="./expenses.js?v=20261117c"></script>
-  <script src="./weather.js?v=20261117c"></script>
-  <script src="./prep.js?v=20261117c"></script>
-  <script src="./daywheel.js?v=20261117c"></script>
-  <script src="./ai-importer.js?v=20261117c"></script>
+  <script type="module" src="./firebase-config.js?v=20261119a"></script>
+  <script src="./app-state.js?v=20261119a"></script>
+  <script src="./dashboard.js?v=20261119a"></script>
+  <script src="./auth.js?v=20261119a"></script>
+  <script src="./members.js?v=20261119a"></script>
+  <script src="./join.js?v=20261119a"></script>
+  <script src="./identity.js?v=20261119a"></script>
+  <script src="./drag-sort.js?v=20261119a"></script>
+  <script src="./itinerary.js?v=20261119a"></script>
+  <script src="./day-swap.js?v=20261119a"></script>
+  <script src="./expenses.js?v=20261119a"></script>
+  <script src="./weather.js?v=20261119a"></script>
+  <script src="./prep.js?v=20261119a"></script>
+  <script src="./daywheel.js?v=20261119a"></script>
+  <script src="./ai-importer.js?v=20261119a"></script>
+  <script src="./tour.js?v=20261119a"></script>
 </body>
 </html>

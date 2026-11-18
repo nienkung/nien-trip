@@ -1,5 +1,5 @@
 // 左側常駐日期滾輪：電腦顯示 5 格、手機 3 格，只顯示窗口內的天數，頭尾不循環。
-// 跟著頁面捲動；可拖曳、可用滾輪、可點選。只在行程分頁顯示。
+// 跟著頁面捲動；可拖曳、可用滾輪、可點選。只在「行程規劃」與「旅程記帳」分頁顯示（行前準備不顯示）。
 (function () {
   var ITEM = 40;
   var wrap = null, track = null, items = [], labels = [], days = [];
@@ -17,9 +17,21 @@
 
   function clampI(v) { return Math.max(0, Math.min(days.length - 1, v)); }
   function modalOpen() { return !!document.querySelector('.modal-mask[style*="display: flex"]'); }
+  function onListTab() { return window._currentTab === 'itinerary' || window._currentTab === 'expense'; }
   function visible() {
     var proj = window.activeProjectData;
-    return window._currentView === 'project' && window._currentTab === 'itinerary' && !!proj && !!proj.startDate && days.length > 0 && !modalOpen();
+    return window._currentView === 'project' && onListTab() && !!proj && !!proj.startDate && days.length > 0 && !modalOpen();
+  }
+  // 目前分頁的天數卡片容器（行程或記帳）
+  function listId() { return window._currentTab === 'expense' ? 'expenseDayList' : 'itineraryContainer'; }
+  // 記帳分頁包含 D0（行前花費）；行程分頁只列 D1 起的行程天（與行程卡片一致）
+  function listDays(proj) {
+    if (window._currentTab === 'expense') return window.getDynamicProjectDays(proj);
+    return window.WX.tripDays(proj);
+  }
+  function toggleDay(card) {
+    if (window._currentTab === 'expense') { if (window.toggleExpDay) window.toggleExpDay(card.querySelector('.card-header')); }
+    else if (window.toggleItinDay) window.toggleItinDay(card.querySelector('.card-header'));
   }
   function count() { return window.innerWidth >= 600 ? 5 : 3; }
 
@@ -44,7 +56,7 @@
   }
 
   function build(proj) {
-    days = window.WX.tripDays(proj);
+    days = listDays(proj);
     track.innerHTML = '';
     items = []; labels = [];
     days.forEach(function (dk) {
@@ -66,7 +78,7 @@
   }
 
   function computeActive() {
-    var cont = document.getElementById('itineraryContainer');
+    var cont = document.getElementById(listId());
     if (!cont) return 0;
     var lim = window.innerHeight * 0.4, idx = 0;
     cont.querySelectorAll('.card[data-day]').forEach(function (c) {
@@ -110,10 +122,10 @@
   function goto(i) {
     i = clampI(i);
     target = i;
-    var cont = document.getElementById('itineraryContainer');
+    var cont = document.getElementById(listId());
     var card = cont && cont.querySelector('.card[data-day="' + days[i] + '"]');
     if (!card) return;
-    if (!card.classList.contains('open') && window.toggleItinDay) window.toggleItinDay(card.querySelector('.card-header'));
+    if (!card.classList.contains('open')) toggleDay(card);
     suppressSync();
     var y = card.getBoundingClientRect().top + window.scrollY - 130;
     window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
@@ -157,7 +169,7 @@
     ensure();
     var proj = window.activeProjectData;
     if (!proj || !proj.startDate) { wrap.style.display = 'none'; document.body.classList.remove('wheel-on'); return; }
-    var fresh = window.WX.tripDays(proj);
+    var fresh = listDays(proj);
     if (!items.length || fresh.join(',') !== days.join(',')) build(proj);
     if (!visible()) {
       wrap.style.display = 'none';
